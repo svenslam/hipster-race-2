@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Spel Aanvulling - Race & Muziek</title>
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- React & Tailwind Integration -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              game: {
+                primary: '#6366f1', 
+                secondary: '#8b5cf6', 
+                accent: '#ec4899', 
+                dark: '#0f172a', 
+                surface: '#1e293b', 
+              }
+            },
+            animation: {
+              'pulse-fast': 'pulse 0.5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            }
+          },
+        },
+      }
+    </script>
+    <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/client": "https://aistudiocdn.com/react-dom@^19.2.0/client",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/"
+  }
+}
+</script>
+    <style>
+        /* React View Overlay */
+        #react-view {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 9999;
+            background-color: #0f172a;
+            overflow: hidden;
+        }
+        /* Ensure vanilla hidden class works if not defined in style.css */
+        .hidden { display: none !important; }
+        
+        /* Basic styling fallback if style.css is missing */
+        body { font-family: sans-serif; margin: 0; background: #f0f9ff; }
+        header { background: #0f172a; color: white; padding: 1rem; text-align: center; }
+        main { padding: 1rem; max-width: 600px; margin: 0 auto; }
+        .view { display: block; }
+        .game-section { background: white; padding: 1.5rem; border-radius: 1rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); margin-bottom: 1rem; text-align: center; }
+        .button-group { display: flex; flex-direction: column; gap: 10px; margin-top: 1rem; }
+        button { padding: 12px 20px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; background: #3b82f6; color: white; transition: transform 0.1s; }
+        button:active { transform: scale(0.98); }
+        .output-box { background: #f1f5f9; padding: 1rem; margin: 1rem 0; border-radius: 0.5rem; border: 1px solid #cbd5e1; min-height: 50px; }
+        h2 { color: #1e293b; margin-top: 0; }
+    </style>
+</head>
+<body>
+    <header id="main-header">
+        <h1>🏎️ Spel Aanvulling: Race & Muziek</h1>
+    </header>
+
+    <main>
+        <div id="main-menu" class="view active">
+            <h2>Welkom bij de Grote Quiz!</h2>
+            <p>Kies een spelmodus om te starten:</p>
+            
+            <section class="game-section">
+                <div class="button-group">
+                    <button onclick="showView('music-view')">🎵 1. Spotify Muziekquiz</button>
+                    <button onclick="showView('f1-view')">🏁 2. Formule 1 Quiz</button>
+                    <button onclick="showView('board-view')">🎲 3. Bordspel Opdracht</button>
+                    <button onclick="showView('react-view')" style="background: linear-gradient(to right, #8b5cf6, #ec4899);">🎁 4. Verrassing: Mini Games</button>
+                </div>
+
+                <div style="margin-top: 20px;">
+                    <button id="audio-toggle-btn" onclick="toggleMainMenuAudio()" style="background: #64748b;">🔇 Muziek uit</button>
+                </div>
+            </section>
+        </div>
+
+        <div id="music-view" class="view hidden">
+            <section class="game-section">
+                <h2>🎵 Muziekquiz (1990-2010)</h2>
+                <p>Raad: Voor of na 2000?</p>
+                <div id="music-output" class="output-box">Druk op 'Start Lied' om te beginnen.</div>
+                <div class="button-group">
+                    <button onclick="startMusicQuiz()">Start Nieuw Lied</button>
+                    <button id="music-answer-btn" onclick="showMusicAnswer()" style="display: none; background: #eab308;">Toon Antwoord</button>
+                    <button id="music-back-btn" onclick="showView('main-menu')" style="display: none; background: #64748b;">↩️ Terug naar Menu</button>
+                </div>
+            </section>
+        </div>
+
+        <div id="f1-view" class="view hidden">
+            <section class="game-section">
+                <h2>🏁 Formule 1 Quiz</h2>
+                <p>Technische vragen, Norris & Verstappen.</p>
+                <div id="f1-output" class="output-box">Druk op 'Nieuwe Vraag' om te starten.</div>
+                <div class="button-group">
+                    <button onclick="startF1Quiz()">Nieuwe Vraag</button>
+                    <button id="f1-answer-btn" onclick="showF1Answer()" style="display: none; background: #eab308;">Toon Antwoord</button>
+                </div>
+            </section>
+            <button class="back-button" onclick="showView('main-menu')" style="margin-top: 1rem; background: #64748b;">↩️ Terug naar Menu</button>
+        </div>
+
+        <div id="board-view" class="view hidden">
+            <section class="game-section">
+                <h2>🎲 Bordspel Opdracht</h2>
+                <p>Trek een kaart voor een actie.</p>
+                <button onclick="getBoardCommand()">Trek Opdracht Kaart</button>
+                <div id="board-output" class="output-box"></div>
+            </section>
+            <button class="back-button" onclick="showView('main-menu')" style="margin-top: 1rem; background: #64748b;">↩️ Terug naar Menu</button>
+        </div>
+
+        <!-- React Container -->
+        <div id="react-view" class="view hidden"></div>
+    </main>
+    
+    <script src="script.js" defer></script>
+    
+    <!-- Mount React App -->
+    <script type="module" src="/index.tsx"></script>
+</body>
+</html>
