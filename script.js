@@ -373,4 +373,13 @@ document.addEventListener('DOMContentLoaded', function() {
     if (window.showView) {
         window.showView('main-menu', true); // True prevents random surprise on initial load
     }
+
+    // EASTER EGG: Click header to force start minigames
+    var header = document.getElementById('main-header');
+    if (header) {
+        header.addEventListener('click', function() {
+            console.log("Easter egg triggered: Forcing minigame view");
+            window.showView('react-view', true);
+        });
+    }
 });
