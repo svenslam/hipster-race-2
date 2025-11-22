@@ -1,0 +1,7 @@
+
+export const GameType = {
+  F1: 'FORMULE_1',
+  MUSIC: 'MUZIEK',
+  SINTERKLAAS: 'SINTERKLAAS',
+  AGILITY: 'BEHENDIGHEID'
+};
