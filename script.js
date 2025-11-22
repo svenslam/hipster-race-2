@@ -33,20 +33,30 @@ window.updateAudioButtonState = function() {
 window.playMainMenuAudio = function() {
     var audioUrl = "Tellen Tot 10.mp3"; 
     if (!mainMenuAudio || mainMenuAudio.paused) {
-        if (!mainMenuAudio) {
-            mainMenuAudio = new Audio(audioUrl);
-            mainMenuAudio.loop = true; 
-        }
-        var playPromise = mainMenuAudio.play();
-        if (playPromise !== undefined) {
-            playPromise.then(function() {
-                isAudioPlaying = true;
-                window.updateAudioButtonState();
-            }).catch(function(error) {
-                isAudioPlaying = false;
-                window.updateAudioButtonState();
-                console.log("Audio kon niet automatisch afspelen.");
-            });
+        try {
+            if (!mainMenuAudio) {
+                mainMenuAudio = new Audio(audioUrl);
+                mainMenuAudio.loop = true; 
+                // Add error listener to silence missing file errors
+                mainMenuAudio.addEventListener('error', function(e) {
+                    console.log("Audio file not found, silencing error.");
+                    isAudioPlaying = false;
+                    window.updateAudioButtonState();
+                });
+            }
+            var playPromise = mainMenuAudio.play();
+            if (playPromise !== undefined) {
+                playPromise.then(function() {
+                    isAudioPlaying = true;
+                    window.updateAudioButtonState();
+                }).catch(function(error) {
+                    isAudioPlaying = false;
+                    window.updateAudioButtonState();
+                    // Console log suppressed for cleaner output
+                });
+            }
+        } catch (e) {
+            console.log("Audio initialization failed");
         }
     }
 };
