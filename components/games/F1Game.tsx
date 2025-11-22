@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { GameProps } from '../../types';
+import { GameProps } from '../../types.ts';
 import { X } from 'lucide-react';
 
 type GameState = 'IDLE' | 'WAITING' | 'LIGHTS_1' | 'LIGHTS_2' | 'LIGHTS_3' | 'LIGHTS_4' | 'LIGHTS_5' | 'READY' | 'GO' | 'FALSE_START' | 'FINISHED';
@@ -16,25 +17,35 @@ export const F1Game: React.FC<GameProps> = ({ onGameOver, onBack }) => {
   const MAX_ATTEMPTS = 3;
 
   useEffect(() => {
-    audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    try {
+      audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    } catch (e) {
+      console.error("AudioContext not supported or blocked", e);
+    }
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      if (audioCtxRef.current) audioCtxRef.current.close();
+      if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
+        try { audioCtxRef.current.close(); } catch(e) {}
+      }
     };
   }, []);
 
   const playTone = (freq: number, type: 'sine' | 'square' | 'sawtooth' | 'triangle', duration: number) => {
     if (!audioCtxRef.current) return;
-    const osc = audioCtxRef.current.createOscillator();
-    const gain = audioCtxRef.current.createGain();
-    osc.type = type;
-    osc.frequency.setValueAtTime(freq, audioCtxRef.current.currentTime);
-    gain.gain.setValueAtTime(0.1, audioCtxRef.current.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, audioCtxRef.current.currentTime + duration);
-    osc.connect(gain);
-    gain.connect(audioCtxRef.current.destination);
-    osc.start();
-    osc.stop(audioCtxRef.current.currentTime + duration);
+    try {
+      const osc = audioCtxRef.current.createOscillator();
+      const gain = audioCtxRef.current.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, audioCtxRef.current.currentTime);
+      gain.gain.setValueAtTime(0.1, audioCtxRef.current.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtxRef.current.currentTime + duration);
+      osc.connect(gain);
+      gain.connect(audioCtxRef.current.destination);
+      osc.start();
+      osc.stop(audioCtxRef.current.currentTime + duration);
+    } catch(e) {
+      console.warn("Audio play failed", e);
+    }
   };
 
   const startSequence = () => {

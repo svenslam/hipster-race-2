@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { GameProps } from '../../types';
+import { GameProps } from '../../types.ts';
 import { X, Music } from 'lucide-react';
 
 interface Obstacle {
@@ -52,85 +53,97 @@ export const SinterklaasGame: React.FC<GameProps> = ({ onGameOver, onBack }) => 
   const GIFT_SIZE = 10; 
 
   useEffect(() => {
-    audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    try {
+      audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    } catch (e) {
+      console.error("AudioContext failed", e);
+    }
     return () => {
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
-      if (audioCtxRef.current) audioCtxRef.current.close();
+      if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
+        try { audioCtxRef.current.close(); } catch(e) {}
+      }
     };
   }, []);
 
   const playSound = (type: 'JUMP' | 'SCORE' | 'CRASH') => {
     if (!audioCtxRef.current) return;
-    const ctx = audioCtxRef.current;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
+    try {
+      const ctx = audioCtxRef.current;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
 
-    const t = ctx.currentTime;
+      const t = ctx.currentTime;
 
-    if (type === 'JUMP') {
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(150, t);
-      osc.frequency.linearRampToValueAtTime(300, t + 0.1);
-      gain.gain.setValueAtTime(0.1, t);
-      gain.gain.linearRampToValueAtTime(0, t + 0.1);
-      osc.start(t);
-      osc.stop(t + 0.1);
-    } else if (type === 'SCORE') {
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(523.25, t); 
-      osc.frequency.setValueAtTime(659.25, t + 0.1); 
-      gain.gain.setValueAtTime(0.1, t);
-      gain.gain.linearRampToValueAtTime(0, t + 0.2);
-      osc.start(t);
-      osc.stop(t + 0.2);
-    } else {
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(100, t);
-      osc.frequency.linearRampToValueAtTime(50, t + 0.3);
-      gain.gain.setValueAtTime(0.2, t);
-      gain.gain.linearRampToValueAtTime(0, t + 0.3);
-      osc.start(t);
-      osc.stop(t + 0.3);
+      if (type === 'JUMP') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(150, t);
+        osc.frequency.linearRampToValueAtTime(300, t + 0.1);
+        gain.gain.setValueAtTime(0.1, t);
+        gain.gain.linearRampToValueAtTime(0, t + 0.1);
+        osc.start(t);
+        osc.stop(t + 0.1);
+      } else if (type === 'SCORE') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(523.25, t); 
+        osc.frequency.setValueAtTime(659.25, t + 0.1); 
+        gain.gain.setValueAtTime(0.1, t);
+        gain.gain.linearRampToValueAtTime(0, t + 0.2);
+        osc.start(t);
+        osc.stop(t + 0.2);
+      } else {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(100, t);
+        osc.frequency.linearRampToValueAtTime(50, t + 0.3);
+        gain.gain.setValueAtTime(0.2, t);
+        gain.gain.linearRampToValueAtTime(0, t + 0.3);
+        osc.start(t);
+        osc.stop(t + 0.3);
+      }
+    } catch (e) {
+      console.warn(e);
     }
   };
 
   const playGallopBeat = () => {
     if (!audioCtxRef.current || gameStateRef.current !== 'PLAYING') return;
-    const ctx = audioCtxRef.current;
-    const t = ctx.currentTime;
+    try {
+      const ctx = audioCtxRef.current;
+      const t = ctx.currentTime;
 
-    // Schedule ahead
-    if (t < nextNoteTimeRef.current) return;
+      // Schedule ahead
+      if (t < nextNoteTimeRef.current) return;
 
-    const tempo = 0.15; // seconds per beat part
-    // Gallop rhythm: dum-da-dum ... dum-da-dum
-    
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    
-    osc.type = 'triangle';
-    // Lower pitch for hoof beat
-    const freq = beatCountRef.current % 3 === 0 ? 80 : 120;
-    osc.frequency.value = freq;
+      const tempo = 0.15; // seconds per beat part
+      // Gallop rhythm: dum-da-dum ... dum-da-dum
+      
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      
+      osc.type = 'triangle';
+      // Lower pitch for hoof beat
+      const freq = beatCountRef.current % 3 === 0 ? 80 : 120;
+      osc.frequency.value = freq;
 
-    gain.gain.setValueAtTime(0.05, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+      gain.gain.setValueAtTime(0.05, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
 
-    osc.start(t);
-    osc.stop(t + 0.05);
+      osc.start(t);
+      osc.stop(t + 0.05);
 
-    // Rhythm pattern: note - note - rest
-    if (beatCountRef.current % 3 === 2) {
-       nextNoteTimeRef.current += tempo * 1.5; // Longer pause
-    } else {
-       nextNoteTimeRef.current += tempo;
-    }
-    
-    beatCountRef.current++;
+      // Rhythm pattern: note - note - rest
+      if (beatCountRef.current % 3 === 2) {
+         nextNoteTimeRef.current += tempo * 1.5; // Longer pause
+      } else {
+         nextNoteTimeRef.current += tempo;
+      }
+      
+      beatCountRef.current++;
+    } catch (e) {}
   };
 
   const startGame = () => {

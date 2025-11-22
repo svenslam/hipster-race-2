@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { GameProps } from '../../types';
+import { GameProps } from '../../types.ts';
 import { X, Target } from 'lucide-react';
 
 export const AgilityGame: React.FC<GameProps> = ({ onGameOver, onBack }) => {
@@ -12,7 +13,11 @@ export const AgilityGame: React.FC<GameProps> = ({ onGameOver, onBack }) => {
   const audioCtxRef = useRef<AudioContext | null>(null);
 
   useEffect(() => {
-    audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    try {
+      audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    } catch(e) {
+      console.error("AudioContext failed", e);
+    }
     setGameStarted(true);
     moveTarget();
 
@@ -23,10 +28,7 @@ export const AgilityGame: React.FC<GameProps> = ({ onGameOver, onBack }) => {
           if (timerRef.current) clearInterval(timerRef.current);
           // Use timeout to break render cycle
           setTimeout(() => {
-             onGameOver({ score: 0, message: '' }); // Placeholder, updated below via state access? 
-             // Actually better to pass current score here.
-             // Since we can't access latest 'score' in this closure easily without ref,
-             // let's use the effect cleanup or a ref for score.
+             onGameOver({ score: 0, message: '' }); // Placeholder, logic below
           }, 0);
           return 0;
         }
@@ -36,7 +38,9 @@ export const AgilityGame: React.FC<GameProps> = ({ onGameOver, onBack }) => {
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
-      if (audioCtxRef.current) audioCtxRef.current.close();
+      if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
+        try { audioCtxRef.current.close(); } catch(e) {}
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty dependency array prevents timer reset on score change
@@ -50,17 +54,19 @@ export const AgilityGame: React.FC<GameProps> = ({ onGameOver, onBack }) => {
 
   const playPop = () => {
     if (!audioCtxRef.current) return;
-    const osc = audioCtxRef.current.createOscillator();
-    const gain = audioCtxRef.current.createGain();
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(300 + Math.random() * 200, audioCtxRef.current.currentTime);
-    gain.gain.setValueAtTime(0.1, audioCtxRef.current.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, audioCtxRef.current.currentTime + 0.1);
-    
-    osc.connect(gain);
-    gain.connect(audioCtxRef.current.destination);
-    osc.start();
-    osc.stop(audioCtxRef.current.currentTime + 0.1);
+    try {
+      const osc = audioCtxRef.current.createOscillator();
+      const gain = audioCtxRef.current.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(300 + Math.random() * 200, audioCtxRef.current.currentTime);
+      gain.gain.setValueAtTime(0.1, audioCtxRef.current.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtxRef.current.currentTime + 0.1);
+      
+      osc.connect(gain);
+      gain.connect(audioCtxRef.current.destination);
+      osc.start();
+      osc.stop(audioCtxRef.current.currentTime + 0.1);
+    } catch (e) {}
   };
 
   const moveTarget = () => {

@@ -1,11 +1,11 @@
 
 import React, { useState } from 'react';
-import { GameType, GameResult } from './types';
-import { WheelSelector } from './components/WheelSelector';
-import { F1Game } from './components/games/F1Game';
-import { MusicGame } from './components/games/MusicGame';
-import { SinterklaasGame } from './components/games/SinterklaasGame';
-import { AgilityGame } from './components/games/AgilityGame';
+import { GameType, GameResult } from './types.ts';
+import { WheelSelector } from './components/WheelSelector.tsx';
+import { F1Game } from './components/games/F1Game.tsx';
+import { MusicGame } from './components/games/MusicGame.tsx';
+import { SinterklaasGame } from './components/games/SinterklaasGame.tsx';
+import { AgilityGame } from './components/games/AgilityGame.tsx';
 import { Trophy, RotateCcw, LogOut } from 'lucide-react';
 
 interface AppProps {

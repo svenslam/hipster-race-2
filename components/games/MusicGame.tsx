@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { GameProps } from '../../types';
+import { GameProps } from '../../types.ts';
 import { X, Play } from 'lucide-react';
 
 const COLORS = [
@@ -21,24 +22,34 @@ export const MusicGame: React.FC<GameProps> = ({ onGameOver, onBack }) => {
   const audioCtxRef = useRef<AudioContext | null>(null);
 
   useEffect(() => {
-    audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    try {
+      audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    } catch (e) {
+      console.error("AudioContext failed", e);
+    }
     return () => {
-      if (audioCtxRef.current) audioCtxRef.current.close();
+      if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
+         try { audioCtxRef.current.close(); } catch(e) {}
+      }
     };
   }, []);
 
   const playTone = (freq: number) => {
     if (!audioCtxRef.current) return;
-    const osc = audioCtxRef.current.createOscillator();
-    const gain = audioCtxRef.current.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(freq, audioCtxRef.current.currentTime);
-    gain.gain.setValueAtTime(0.1, audioCtxRef.current.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, audioCtxRef.current.currentTime + 0.5);
-    osc.connect(gain);
-    gain.connect(audioCtxRef.current.destination);
-    osc.start();
-    osc.stop(audioCtxRef.current.currentTime + 0.5);
+    try {
+      const osc = audioCtxRef.current.createOscillator();
+      const gain = audioCtxRef.current.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, audioCtxRef.current.currentTime);
+      gain.gain.setValueAtTime(0.1, audioCtxRef.current.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtxRef.current.currentTime + 0.5);
+      osc.connect(gain);
+      gain.connect(audioCtxRef.current.destination);
+      osc.start();
+      osc.stop(audioCtxRef.current.currentTime + 0.5);
+    } catch(e) {
+      console.warn(e);
+    }
   };
 
   const addToSequence = () => {
@@ -100,12 +111,14 @@ export const MusicGame: React.FC<GameProps> = ({ onGameOver, onBack }) => {
       setStatus('GAME_OVER');
       // Error sound
       if (audioCtxRef.current) {
-        const osc = audioCtxRef.current.createOscillator();
-        osc.frequency.value = 150;
-        osc.type = 'sawtooth';
-        osc.connect(audioCtxRef.current.destination);
-        osc.start();
-        osc.stop(audioCtxRef.current.currentTime + 0.5);
+        try {
+          const osc = audioCtxRef.current.createOscillator();
+          osc.frequency.value = 150;
+          osc.type = 'sawtooth';
+          osc.connect(audioCtxRef.current.destination);
+          osc.start();
+          osc.stop(audioCtxRef.current.currentTime + 0.5);
+        } catch(e) {}
       }
       setTimeout(() => {
         onGameOver({ score, message: `Je onthield ${score} tonen!` });
