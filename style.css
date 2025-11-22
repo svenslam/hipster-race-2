@@ -18,7 +18,7 @@ body {
 header {
     background: linear-gradient(to right, #e30613, #ff4154);
     color: white;
-    padding: 15px;
+    padding: 10px 15px; /* Reduced padding */
     text-align: center;
     box-shadow: 0 4px 15px rgba(0,0,0,0.2);
     z-index: 10;
@@ -28,7 +28,7 @@ header {
 
 header h1 {
     margin: 0;
-    font-size: 1.4rem;
+    font-size: 1.2rem; /* Smaller header font */
     text-transform: uppercase;
     letter-spacing: 1px;
     font-weight: 900;
@@ -84,7 +84,7 @@ main {
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    padding: 10px 20px;
+    padding: 5px 15px;
     width: 100%;
     box-sizing: border-box;
     overflow-y: auto; /* Allow scrolling if buttons don't fit */
@@ -92,8 +92,8 @@ main {
 
 .menu-content h2 {
     color: #1e293b;
-    margin-bottom: 20px;
-    font-size: 1.6rem;
+    margin-bottom: 15px;
+    font-size: 1.3rem;
     font-weight: 800;
     text-shadow: 0 1px 2px rgba(0,0,0,0.05);
     flex-shrink: 0;
@@ -102,19 +102,19 @@ main {
 .button-grid {
     display: flex;
     flex-direction: column;
-    gap: 15px; /* Slightly tighter gap */
+    gap: 10px; /* Reduced gap */
     width: 100%;
-    padding-bottom: 20px; /* Extra space for scroll */
+    padding-bottom: 10px; 
 }
 
-/* Fancy Game Buttons - 3D STYLE */
+/* Fancy Game Buttons - COMPACT 3D STYLE */
 .game-btn {
     display: flex;
     align-items: center;
     width: 100%;
-    padding: 20px 20px; /* Slightly smaller padding for better fit */
+    padding: 12px 15px; /* Significantly reduced padding */
     border: none;
-    border-radius: 20px;
+    border-radius: 15px; /* Smaller radius */
     color: white;
     cursor: pointer;
     position: relative;
@@ -124,8 +124,8 @@ main {
     
     /* Strong 3D Shadow Effect */
     box-shadow: 
-        0 8px 0 rgba(0,0,0,0.25), 
-        0 15px 20px rgba(0,0,0,0.2);
+        0 5px 0 rgba(0,0,0,0.25), 
+        0 10px 15px rgba(0,0,0,0.2);
     
     /* Thicker border bottom for extra height appearance */
     border-bottom: 2px solid rgba(0,0,0,0.1);
@@ -133,18 +133,18 @@ main {
 }
 
 .game-btn:active {
-    transform: translateY(8px);
+    transform: translateY(5px);
     box-shadow: 
         0 0 0 rgba(0,0,0,0.25), 
         0 2px 5px rgba(0,0,0,0.2);
 }
 
 .game-btn .icon {
-    font-size: 2.5rem;
-    margin-right: 20px;
+    font-size: 1.8rem; /* Smaller icon */
+    margin-right: 15px;
     filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
     flex-shrink: 0;
-    width: 50px;
+    width: 40px;
     text-align: center;
 }
 
@@ -156,7 +156,7 @@ main {
 
 .game-btn .text {
     display: block;
-    font-size: 1.3rem;
+    font-size: 1.1rem; /* Smaller title */
     font-weight: 900;
     line-height: 1.1;
     text-shadow: 0 1px 2px rgba(0,0,0,0.1);
@@ -164,8 +164,8 @@ main {
 
 .game-btn .sub {
     display: block;
-    margin-top: 4px;
-    font-size: 0.9rem;
+    margin-top: 2px;
+    font-size: 0.8rem; /* Smaller subtitle */
     opacity: 0.9;
     font-weight: 500;
 }
@@ -173,7 +173,6 @@ main {
 /* Button Specific Colors */
 .btn-spotify { 
     background: #1DB954;
-    /* Darker green shadow handled by opacity */
 }
 
 .btn-f1 { 
@@ -184,13 +183,8 @@ main {
     background: #3b82f6;
 }
 
-.btn-arcade {
-    background: #8b5cf6; /* Violet for arcade/mix */
-}
-
-
 .menu-footer {
-    padding: 20px;
+    padding: 15px;
     display: flex;
     justify-content: center;
     flex-shrink: 0;
@@ -200,9 +194,9 @@ main {
     background: #cbd5e1;
     color: #475569;
     border: none;
-    padding: 12px 24px;
+    padding: 10px 20px;
     border-radius: 50px;
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     font-weight: bold;
     cursor: pointer;
     border-bottom: 4px solid #94a3b8;
@@ -227,7 +221,7 @@ main {
 }
 
 .card-header {
-    padding: 20px;
+    padding: 15px;
     color: white;
     display: flex;
     justify-content: space-between;
@@ -242,7 +236,7 @@ main {
 
 .card-header h2 {
     margin: 0;
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     color: white;
     border: none;
     padding: 0;
@@ -251,8 +245,8 @@ main {
 
 .badge {
     background: rgba(255,255,255,0.25);
-    padding: 6px 12px;
-    border-radius: 12px;
+    padding: 4px 10px;
+    border-radius: 10px;
     font-size: 0.7rem;
     text-transform: uppercase;
     font-weight: bold;
@@ -261,7 +255,7 @@ main {
 
 .card-body {
     flex: 1;
-    padding: 20px;
+    padding: 15px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
@@ -274,26 +268,26 @@ main {
 }
 
 .card-actions {
-    padding: 20px;
+    padding: 15px;
     background: #f8fafc;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
     border-top: 1px solid #e2e8f0;
 }
 
 /* Action Buttons */
 .action-btn {
     width: 100%;
-    padding: 16px;
+    padding: 14px;
     border: none;
-    border-radius: 16px;
-    font-size: 1.1rem;
+    border-radius: 12px;
+    font-size: 1rem;
     font-weight: 800;
     cursor: pointer;
     transition: all 0.1s;
-    margin-bottom: 4px;
-    border-bottom: 5px solid rgba(0,0,0,0.2);
+    margin-bottom: 2px;
+    border-bottom: 4px solid rgba(0,0,0,0.2);
 }
 
 .action-btn:active { 
@@ -308,11 +302,11 @@ main {
 .text-btn {
     background: none;
     border: none;
-    font-size: 1.5rem;
+    font-size: 1.2rem;
     color: white;
     cursor: pointer;
-    width: 40px;
-    height: 40px;
+    width: 35px;
+    height: 35px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -322,8 +316,8 @@ main {
 
 .top-right-close {
     position: absolute;
-    top: 12px;
-    right: 12px;
+    top: 10px;
+    right: 10px;
     z-index: 20;
 }
 
@@ -332,16 +326,16 @@ main {
     background: #fffbeb;
     border: 2px dashed #fbbf24;
     border-radius: 16px;
-    padding: 25px;
-    font-size: 1.1rem;
-    line-height: 1.6;
+    padding: 20px;
+    font-size: 1rem;
+    line-height: 1.5;
     color: #451a03;
     flex-shrink: 0;
     box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
 }
 
 .output-box.large-text {
-    font-size: 1.5rem;
+    font-size: 1.3rem;
     text-align: center;
     font-weight: 600;
 }
@@ -352,9 +346,9 @@ main {
     background: #191414;
     color: white;
     text-decoration: none;
-    padding: 12px 20px;
+    padding: 10px 18px;
     border-radius: 25px;
-    font-size: 1rem;
+    font-size: 0.9rem;
     font-weight: bold;
     box-shadow: 0 4px 10px rgba(0,0,0,0.3);
 }
