@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { GameType, GameResult } from './types';
 import { WheelSelector } from './components/WheelSelector';
@@ -47,7 +48,7 @@ export default function App({ onExit }: AppProps) {
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 relative overflow-hidden no-select bg-game-dark text-white">
+    <div className="h-[100dvh] w-screen flex flex-col items-center justify-center p-4 relative overflow-hidden no-select bg-game-dark text-white">
       {/* Background decorative elements */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 opacity-20 pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-64 h-64 bg-game-primary rounded-full blur-3xl"></div>

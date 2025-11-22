@@ -74,31 +74,45 @@
             <div class="menu-content">
                 <h2>Kies je Spel</h2>
                 
-                <!-- Added explicit flex-col and gap classes for vertical stacking -->
-                <div class="button-grid flex flex-col gap-6 w-full px-4">
-                    <button class="game-btn btn-spotify w-full" onclick="showView('music-view')">
-                        <span class="icon text-4xl">🎵</span>
-                        <div class="btn-content flex flex-col items-start">
-                            <span class="text text-xl font-black">Muziek Quiz</span>
-                            <span class="sub text-sm opacity-90">Spotify Raadspel</span>
+                <!-- Button Grid: Flex Column ensures they stack -->
+                <div class="button-grid">
+                    
+                    <!-- Button 1: Music -->
+                    <button class="game-btn btn-spotify" onclick="showView('music-view')">
+                        <span class="icon">🎵</span>
+                        <div class="btn-content">
+                            <span class="text">Muziek Quiz</span>
+                            <span class="sub">Spotify Raadspel</span>
                         </div>
                     </button>
                     
-                    <button class="game-btn btn-f1 w-full" onclick="showView('f1-view')">
-                        <span class="icon text-4xl">🏁</span>
-                        <div class="btn-content flex flex-col items-start">
-                            <span class="text text-xl font-black">F1 Kennis</span>
-                            <span class="sub text-sm opacity-90">Techniek & Max</span>
+                    <!-- Button 2: F1 -->
+                    <button class="game-btn btn-f1" onclick="showView('f1-view')">
+                        <span class="icon">🏁</span>
+                        <div class="btn-content">
+                            <span class="text">F1 Kennis</span>
+                            <span class="sub">Techniek & Max</span>
                         </div>
                     </button>
                     
-                    <button class="game-btn btn-board w-full" onclick="showView('board-view')">
-                        <span class="icon text-4xl">🎲</span>
-                        <div class="btn-content flex flex-col items-start">
-                            <span class="text text-xl font-black">Bordspel</span>
-                            <span class="sub text-sm opacity-90">Pak een Kaart</span>
+                    <!-- Button 3: Board -->
+                    <button class="game-btn btn-board" onclick="showView('board-view')">
+                        <span class="icon">🎲</span>
+                        <div class="btn-content">
+                            <span class="text">Bordspel</span>
+                            <span class="sub">Pak een Kaart</span>
                         </div>
                     </button>
+
+                    <!-- Button 4: Mini Games (React) -->
+                    <button class="game-btn btn-arcade" onclick="showView('react-view')">
+                        <span class="icon">🕹️</span>
+                        <div class="btn-content">
+                            <span class="text">Mini Games</span>
+                            <span class="sub">Actie & Behendigheid</span>
+                        </div>
+                    </button>
+
                 </div>
             </div>
 

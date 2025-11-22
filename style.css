@@ -74,6 +74,8 @@ main {
     width: 100%;
     max-width: 600px; /* Max width for tablets/desktop */
     margin: 0 auto;
+    display: flex; /* Ensure flex behavior for children */
+    flex-direction: column;
 }
 
 .menu-content {
@@ -82,7 +84,10 @@ main {
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    padding: 10px 0;
+    padding: 10px 20px;
+    width: 100%;
+    box-sizing: border-box;
+    overflow-y: auto; /* Allow scrolling if buttons don't fit */
 }
 
 .menu-content h2 {
@@ -91,55 +96,68 @@ main {
     font-size: 1.6rem;
     font-weight: 800;
     text-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    flex-shrink: 0;
 }
 
 .button-grid {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 15px !important;
+    display: flex;
+    flex-direction: column;
+    gap: 15px; /* Slightly tighter gap */
     width: 100%;
+    padding-bottom: 20px; /* Extra space for scroll */
 }
 
 /* Fancy Game Buttons - 3D STYLE */
 .game-btn {
-    display: flex !important;
+    display: flex;
     align-items: center;
     width: 100%;
-    padding: 20px;
+    padding: 20px 20px; /* Slightly smaller padding for better fit */
     border: none;
-    border-radius: 16px;
-    background-color: white; /* Default fallback */
+    border-radius: 20px;
     color: white;
     cursor: pointer;
     position: relative;
     text-align: left;
-    transition: transform 0.1s ease, border-bottom-width 0.1s ease;
-    margin-bottom: 5px; /* Small correction */
+    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
     box-sizing: border-box;
     
-    /* 3D Effect using Border */
-    border-bottom: 8px solid rgba(0,0,0,0.2);
+    /* Strong 3D Shadow Effect */
+    box-shadow: 
+        0 8px 0 rgba(0,0,0,0.25), 
+        0 15px 20px rgba(0,0,0,0.2);
+    
+    /* Thicker border bottom for extra height appearance */
+    border-bottom: 2px solid rgba(0,0,0,0.1);
+    transform: translateY(0);
 }
 
 .game-btn:active {
-    transform: translateY(4px);
-    border-bottom-width: 4px;
+    transform: translateY(8px);
+    box-shadow: 
+        0 0 0 rgba(0,0,0,0.25), 
+        0 2px 5px rgba(0,0,0,0.2);
 }
 
 .game-btn .icon {
+    font-size: 2.5rem;
     margin-right: 20px;
     filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
     flex-shrink: 0;
+    width: 50px;
+    text-align: center;
 }
 
 .game-btn .btn-content {
     display: flex;
     flex-direction: column;
-    align-items: flex-start; /* Ensure left alignment */
+    align-items: flex-start;
 }
 
 .game-btn .text {
     display: block;
+    font-size: 1.3rem;
+    font-weight: 900;
     line-height: 1.1;
     text-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
@@ -147,22 +165,27 @@ main {
 .game-btn .sub {
     display: block;
     margin-top: 4px;
+    font-size: 0.9rem;
+    opacity: 0.9;
+    font-weight: 500;
 }
 
 /* Button Specific Colors */
 .btn-spotify { 
-    background: #1DB954 !important;
-    border-color: #116330 !important; /* Dark green border */
+    background: #1DB954;
+    /* Darker green shadow handled by opacity */
 }
 
 .btn-f1 { 
-    background: #e30613 !important;
-    border-color: #8a030b !important; /* Dark red border */
+    background: #e30613;
 }
 
 .btn-board { 
-    background: #3b82f6 !important;
-    border-color: #1e40af !important; /* Dark blue border */
+    background: #3b82f6;
+}
+
+.btn-arcade {
+    background: #8b5cf6; /* Violet for arcade/mix */
 }
 
 
@@ -170,6 +193,7 @@ main {
     padding: 20px;
     display: flex;
     justify-content: center;
+    flex-shrink: 0;
 }
 
 .audio-btn {
@@ -335,13 +359,13 @@ main {
     box-shadow: 0 4px 10px rgba(0,0,0,0.3);
 }
 
-/* React View Overlay */
+/* React View Overlay - FIXED to guarantee full screen on mobile */
 #react-view {
-    position: absolute;
+    position: fixed;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
+    width: 100vw;
+    height: 100dvh; /* Use dvh specifically */
     z-index: 9999;
-    background: #0f172a; /* Ensure dark background immediately */
+    background: #0f172a;
 }
