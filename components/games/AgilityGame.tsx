@@ -8,7 +8,7 @@ export const AgilityGame: React.FC<GameProps> = ({ onGameOver, onBack }) => {
   const [targetPos, setTargetPos] = useState({ top: 50, left: 50 });
   const [gameStarted, setGameStarted] = useState(false);
   
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
 
   useEffect(() => {

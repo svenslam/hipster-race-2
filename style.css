@@ -1,0 +1,347 @@
+
+html, body {
+    height: 100%;
+    height: 100dvh; /* Dynamic Viewport Height for mobile */
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background-color: #f0f2f5;
+    color: #333;
+    overflow: hidden; /* Prevent scrolling on the body */
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+}
+
+header {
+    background: linear-gradient(to right, #e30613, #ff4154);
+    color: white;
+    padding: 15px;
+    text-align: center;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    z-index: 10;
+    flex-shrink: 0;
+    border-bottom: 4px solid rgba(0,0,0,0.1);
+}
+
+header h1 {
+    margin: 0;
+    font-size: 1.4rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 900;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+main {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background-color: #eef2f6;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 10px;
+}
+
+/* View Management */
+.view {
+    width: 100%;
+    height: 100%;
+    display: none;
+}
+
+.view.active {
+    display: flex;
+    flex-direction: column;
+    animation: fadeIn 0.3s ease-out;
+}
+
+.hidden {
+    display: none !important;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Main Menu Layout */
+.full-height-view {
+    height: 100%;
+    width: 100%;
+    max-width: 600px; /* Max width for tablets/desktop */
+    margin: 0 auto;
+}
+
+.menu-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 10px 0;
+}
+
+.menu-content h2 {
+    color: #1e293b;
+    margin-bottom: 20px;
+    font-size: 1.6rem;
+    font-weight: 800;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.button-grid {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 15px !important;
+    width: 100%;
+}
+
+/* Fancy Game Buttons - 3D STYLE */
+.game-btn {
+    display: flex !important;
+    align-items: center;
+    width: 100%;
+    padding: 20px;
+    border: none;
+    border-radius: 16px;
+    background-color: white; /* Default fallback */
+    color: white;
+    cursor: pointer;
+    position: relative;
+    text-align: left;
+    transition: transform 0.1s ease, border-bottom-width 0.1s ease;
+    margin-bottom: 5px; /* Small correction */
+    box-sizing: border-box;
+    
+    /* 3D Effect using Border */
+    border-bottom: 8px solid rgba(0,0,0,0.2);
+}
+
+.game-btn:active {
+    transform: translateY(4px);
+    border-bottom-width: 4px;
+}
+
+.game-btn .icon {
+    margin-right: 20px;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+    flex-shrink: 0;
+}
+
+.game-btn .btn-content {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start; /* Ensure left alignment */
+}
+
+.game-btn .text {
+    display: block;
+    line-height: 1.1;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.game-btn .sub {
+    display: block;
+    margin-top: 4px;
+}
+
+/* Button Specific Colors */
+.btn-spotify { 
+    background: #1DB954 !important;
+    border-color: #116330 !important; /* Dark green border */
+}
+
+.btn-f1 { 
+    background: #e30613 !important;
+    border-color: #8a030b !important; /* Dark red border */
+}
+
+.btn-board { 
+    background: #3b82f6 !important;
+    border-color: #1e40af !important; /* Dark blue border */
+}
+
+
+.menu-footer {
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+}
+
+.audio-btn {
+    background: #cbd5e1;
+    color: #475569;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 50px;
+    font-size: 0.9rem;
+    font-weight: bold;
+    cursor: pointer;
+    border-bottom: 4px solid #94a3b8;
+    transition: all 0.1s;
+}
+
+.audio-btn:active {
+    transform: translateY(4px);
+    border-bottom-width: 0;
+}
+
+/* Sub-Game Card Layout */
+.game-card {
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+}
+
+.card-header {
+    padding: 20px;
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    z-index: 5;
+}
+
+.spotify-header { background: linear-gradient(to right, #1DB954, #1ed760); }
+.f1-header { background: linear-gradient(to right, #e30613, #ff4b5c); }
+.board-header { background: linear-gradient(to right, #3b82f6, #60a5fa); }
+
+.card-header h2 {
+    margin: 0;
+    font-size: 1.2rem;
+    color: white;
+    border: none;
+    padding: 0;
+    font-weight: 800;
+}
+
+.badge {
+    background: rgba(255,255,255,0.25);
+    padding: 6px 12px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    font-weight: bold;
+    backdrop-filter: blur(4px);
+}
+
+.card-body {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.centered-content {
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
+
+.card-actions {
+    padding: 20px;
+    background: #f8fafc;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    border-top: 1px solid #e2e8f0;
+}
+
+/* Action Buttons */
+.action-btn {
+    width: 100%;
+    padding: 16px;
+    border: none;
+    border-radius: 16px;
+    font-size: 1.1rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.1s;
+    margin-bottom: 4px;
+    border-bottom: 5px solid rgba(0,0,0,0.2);
+}
+
+.action-btn:active { 
+    transform: translateY(4px);
+    border-bottom-width: 1px;
+}
+
+.action-btn.primary { background: #0f172a; color: white; border-color: #020617; }
+.action-btn.secondary { background: #e2e8f0; color: #475569; border-color: #cbd5e1; }
+.action-btn.warning { background: #fbbf24; color: #451a03; border-color: #d97706; }
+
+.text-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: white;
+    cursor: pointer;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+}
+
+.top-right-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 20;
+}
+
+/* Output Box Styling */
+.output-box {
+    background: #fffbeb;
+    border: 2px dashed #fbbf24;
+    border-radius: 16px;
+    padding: 25px;
+    font-size: 1.1rem;
+    line-height: 1.6;
+    color: #451a03;
+    flex-shrink: 0;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.output-box.large-text {
+    font-size: 1.5rem;
+    text-align: center;
+    font-weight: 600;
+}
+
+#music-output a {
+    display: inline-block;
+    margin-top: 15px;
+    background: #191414;
+    color: white;
+    text-decoration: none;
+    padding: 12px 20px;
+    border-radius: 25px;
+    font-size: 1rem;
+    font-weight: bold;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+
+/* React View Overlay */
+#react-view {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 9999;
+    background: #0f172a; /* Ensure dark background immediately */
+}

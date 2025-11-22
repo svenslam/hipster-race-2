@@ -39,95 +39,130 @@
   }
 }
 </script>
-    <style>
-        /* React View Overlay */
-        #react-view {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            z-index: 9999;
-            background-color: #0f172a;
-            overflow: hidden;
+    <!-- Safety Script -->
+    <script>
+      (function() {
+        function fallbackShowView(viewId, skipRandom) {
+           console.log("Fallback showView triggered for:", viewId);
+           var views = document.querySelectorAll('.view');
+           views.forEach(function(v) { 
+             v.classList.toggle('hidden', v.id !== viewId);
+             v.classList.toggle('active', v.id === viewId);
+           });
         }
-        /* Ensure vanilla hidden class works if not defined in style.css */
-        .hidden { display: none !important; }
-        
-        /* Basic styling fallback if style.css is missing */
-        body { font-family: sans-serif; margin: 0; background: #f0f9ff; }
-        header { background: #0f172a; color: white; padding: 1rem; text-align: center; }
-        main { padding: 1rem; max-width: 600px; margin: 0 auto; }
-        .view { display: block; }
-        .game-section { background: white; padding: 1.5rem; border-radius: 1rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); margin-bottom: 1rem; text-align: center; }
-        .button-group { display: flex; flex-direction: column; gap: 10px; margin-top: 1rem; }
-        button { padding: 12px 20px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; background: #3b82f6; color: white; transition: transform 0.1s; }
-        button:active { transform: scale(0.98); }
-        .output-box { background: #f1f5f9; padding: 1rem; margin: 1rem 0; border-radius: 0.5rem; border: 1px solid #cbd5e1; min-height: 50px; }
-        h2 { color: #1e293b; margin-top: 0; }
-    </style>
+
+        window.showView = window.showView || fallbackShowView;
+        window.startMusicQuiz = window.startMusicQuiz || function() {};
+        window.startF1Quiz = window.startF1Quiz || function() {};
+        window.getBoardCommand = window.getBoardCommand || function() {};
+        window.toggleMainMenuAudio = window.toggleMainMenuAudio || function() {};
+        window.showMusicAnswer = window.showMusicAnswer || function() {};
+        window.showF1Answer = window.showF1Answer || function() {};
+      })();
+    </script>
 </head>
 <body>
+    <!-- Fixed Header -->
     <header id="main-header">
-        <h1>🏎️ Spel Aanvulling: Race & Muziek</h1>
+        <h1>🏎️ Spel Aanvulling</h1>
     </header>
 
+    <!-- Main Content Container -->
     <main>
-        <div id="main-menu" class="view active">
-            <h2>Welkom bij de Grote Quiz!</h2>
-            <p>Kies een spelmodus om te starten:</p>
-            
-            <section class="game-section">
-                <div class="button-group">
-                    <button onclick="showView('music-view')">🎵 1. Spotify Muziekquiz</button>
-                    <button onclick="showView('f1-view')">🏁 2. Formule 1 Quiz</button>
-                    <button onclick="showView('board-view')">🎲 3. Bordspel Opdracht</button>
-                    <button onclick="showView('react-view')" style="background: linear-gradient(to right, #8b5cf6, #ec4899);">🎁 4. Verrassing: Mini Games</button>
+        <!-- Main Menu View -->
+        <div id="main-menu" class="view active full-height-view">
+            <div class="menu-content">
+                <h2>Kies je Spel</h2>
+                
+                <!-- Added explicit flex-col and gap classes for vertical stacking -->
+                <div class="button-grid flex flex-col gap-6 w-full px-4">
+                    <button class="game-btn btn-spotify w-full" onclick="showView('music-view')">
+                        <span class="icon text-4xl">🎵</span>
+                        <div class="btn-content flex flex-col items-start">
+                            <span class="text text-xl font-black">Muziek Quiz</span>
+                            <span class="sub text-sm opacity-90">Spotify Raadspel</span>
+                        </div>
+                    </button>
+                    
+                    <button class="game-btn btn-f1 w-full" onclick="showView('f1-view')">
+                        <span class="icon text-4xl">🏁</span>
+                        <div class="btn-content flex flex-col items-start">
+                            <span class="text text-xl font-black">F1 Kennis</span>
+                            <span class="sub text-sm opacity-90">Techniek & Max</span>
+                        </div>
+                    </button>
+                    
+                    <button class="game-btn btn-board w-full" onclick="showView('board-view')">
+                        <span class="icon text-4xl">🎲</span>
+                        <div class="btn-content flex flex-col items-start">
+                            <span class="text text-xl font-black">Bordspel</span>
+                            <span class="sub text-sm opacity-90">Pak een Kaart</span>
+                        </div>
+                    </button>
                 </div>
+            </div>
 
-                <div style="margin-top: 20px;">
-                    <button id="audio-toggle-btn" onclick="toggleMainMenuAudio()" style="background: #64748b;">🔇 Muziek uit</button>
-                </div>
-            </section>
+            <div class="menu-footer">
+                <button id="audio-toggle-btn" onclick="toggleMainMenuAudio()" class="audio-btn">🔇 Muziek Uit</button>
+            </div>
         </div>
 
-        <div id="music-view" class="view hidden">
-            <section class="game-section">
-                <h2>🎵 Muziekquiz (1990-2010)</h2>
-                <p>Raad: Voor of na 2000?</p>
-                <div id="music-output" class="output-box">Druk op 'Start Lied' om te beginnen.</div>
-                <div class="button-group">
-                    <button onclick="startMusicQuiz()">Start Nieuw Lied</button>
-                    <button id="music-answer-btn" onclick="showMusicAnswer()" style="display: none; background: #eab308;">Toon Antwoord</button>
-                    <button id="music-back-btn" onclick="showView('main-menu')" style="display: none; background: #64748b;">↩️ Terug naar Menu</button>
+        <!-- Spotify View -->
+        <div id="music-view" class="view hidden full-height-view">
+            <div class="game-card">
+                <div class="card-header spotify-header">
+                    <h2>🎵 Muziekquiz</h2>
+                    <span class="badge">Voor of Na 2000?</span>
                 </div>
-            </section>
-        </div>
-
-        <div id="f1-view" class="view hidden">
-            <section class="game-section">
-                <h2>🏁 Formule 1 Quiz</h2>
-                <p>Technische vragen, Norris & Verstappen.</p>
-                <div id="f1-output" class="output-box">Druk op 'Nieuwe Vraag' om te starten.</div>
-                <div class="button-group">
-                    <button onclick="startF1Quiz()">Nieuwe Vraag</button>
-                    <button id="f1-answer-btn" onclick="showF1Answer()" style="display: none; background: #eab308;">Toon Antwoord</button>
+                <div class="card-body">
+                    <div id="music-output" class="output-box">Druk op start...</div>
                 </div>
-            </section>
-            <button class="back-button" onclick="showView('main-menu')" style="margin-top: 1rem; background: #64748b;">↩️ Terug naar Menu</button>
+                <div class="card-actions">
+                    <button onclick="startMusicQuiz()" class="action-btn primary">Start Nieuw Lied</button>
+                    <button id="music-answer-btn" onclick="showMusicAnswer()" class="action-btn warning" style="display: none;">Toon Antwoord</button>
+                    <button id="music-back-btn" onclick="showView('main-menu')" class="action-btn secondary" style="display: none;">↩️ Terug</button>
+                </div>
+                <!-- Initial Back Button (hidden when game active) -->
+                <button onclick="showView('main-menu')" class="text-btn top-right-close">✕</button>
+            </div>
         </div>
 
-        <div id="board-view" class="view hidden">
-            <section class="game-section">
-                <h2>🎲 Bordspel Opdracht</h2>
-                <p>Trek een kaart voor een actie.</p>
-                <button onclick="getBoardCommand()">Trek Opdracht Kaart</button>
-                <div id="board-output" class="output-box"></div>
-            </section>
-            <button class="back-button" onclick="showView('main-menu')" style="margin-top: 1rem; background: #64748b;">↩️ Terug naar Menu</button>
+        <!-- F1 View -->
+        <div id="f1-view" class="view hidden full-height-view">
+             <div class="game-card">
+                <div class="card-header f1-header">
+                    <h2>🏁 F1 Quiz</h2>
+                    <span class="badge">Expert Vragen</span>
+                </div>
+                <div class="card-body">
+                    <div id="f1-output" class="output-box">Klaar voor de start?</div>
+                </div>
+                <div class="card-actions">
+                    <button onclick="startF1Quiz()" class="action-btn primary">Nieuwe Vraag</button>
+                    <button id="f1-answer-btn" onclick="showF1Answer()" class="action-btn warning" style="display: none;">Toon Antwoord</button>
+                    <button onclick="showView('main-menu')" class="action-btn secondary">↩️ Terug</button>
+                </div>
+            </div>
         </div>
 
-        <!-- React Container -->
+        <!-- Board View -->
+        <div id="board-view" class="view hidden full-height-view">
+             <div class="game-card">
+                <div class="card-header board-header">
+                    <h2>🎲 Opdracht</h2>
+                    <span class="badge">Actie Kaart</span>
+                </div>
+                <div class="card-body centered-content">
+                    <div id="board-output" class="output-box large-text"></div>
+                </div>
+                <div class="card-actions">
+                    <button onclick="getBoardCommand()" class="action-btn primary">Trek Kaart</button>
+                    <button onclick="showView('main-menu')" class="action-btn secondary">↩️ Terug</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- React Container (Popup Overlay) -->
         <div id="react-view" class="view hidden"></div>
     </main>
     

@@ -10,7 +10,7 @@ export const F1Game: React.FC<GameProps> = ({ onGameOver, onBack }) => {
   const [attempts, setAttempts] = useState(0);
   const [totalTime, setTotalTime] = useState(0);
   const startTimeRef = useRef<number>(0);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
 
   const MAX_ATTEMPTS = 3;
