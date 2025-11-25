@@ -1,255 +1,16 @@
 
-// --- GLOBAL FUNCTION DEFINITIONS (DEFINED FIRST) ---
-
-// Helper Function
-function getNextIndex(questions, usedIndices) {
-    if (usedIndices.length === questions.length) {
-        usedIndices.length = 0;
-        console.log("Quizlijst is op, start opnieuw.");
-    }
-    let randomIndex;
-    do {
-        randomIndex = Math.floor(Math.random() * questions.length);
-    } while (usedIndices.includes(randomIndex));
-    usedIndices.push(randomIndex);
-    return randomIndex;
-}
-
-// Audio Functions
-window.updateAudioButtonState = function() {
-    var btn = document.getElementById('audio-toggle-btn');
-    if (!btn) return;
-    if (isAudioPlaying) {
-        btn.innerHTML = "🔇 Muziek uit";
-        btn.style.background = "#cbd5e1";
-        btn.style.color = "#475569";
-    } else {
-        btn.innerHTML = "▶️ Muziek aan";
-        btn.style.background = "#e30613";
-        btn.style.color = "white";
-    }
-};
-
-window.playMainMenuAudio = function() {
-    var audioUrl = "Tellen Tot 10.mp3"; 
-    if (!mainMenuAudio || mainMenuAudio.paused) {
-        try {
-            if (!mainMenuAudio) {
-                mainMenuAudio = new Audio(audioUrl);
-                mainMenuAudio.loop = true; 
-                // Add error listener to silence missing file errors
-                mainMenuAudio.addEventListener('error', function(e) {
-                    console.log("Audio file not found, silencing error.");
-                    isAudioPlaying = false;
-                    window.updateAudioButtonState();
-                });
-            }
-            var playPromise = mainMenuAudio.play();
-            if (playPromise !== undefined) {
-                playPromise.then(function() {
-                    isAudioPlaying = true;
-                    window.updateAudioButtonState();
-                }).catch(function(error) {
-                    isAudioPlaying = false;
-                    window.updateAudioButtonState();
-                    // Console log suppressed for cleaner output
-                });
-            }
-        } catch (e) {
-            console.log("Audio initialization failed");
-        }
-    }
-};
-
-window.stopMainMenuAudio = function() {
-    if (mainMenuAudio) {
-        mainMenuAudio.pause();
-        // We do NOT reset currentTime to 0, so it resumes nicely
-        isAudioPlaying = false;
-        window.updateAudioButtonState();
-    }
-};
-
-window.toggleMainMenuAudio = function() {
-    if (isAudioPlaying) {
-        window.stopMainMenuAudio();
-    } else {
-        window.playMainMenuAudio();
-    }
-};
-
-// Navigatie Functie
-// skipRandom is true when coming from the React App exit button
-window.showView = function(viewId, skipRandom) {
-    
-    // --- SURPRISE LOGIC ---
-    // If trying to go to main menu, and NOT forced to skip random (e.g. by React app exit)
-    if (viewId === 'main-menu' && !skipRandom) {
-        // 40% chance to trigger the mini-game surprise
-        if (Math.random() < 0.40) {
-            console.log("Verrassing! Triggering React View");
-            viewId = 'react-view'; // Hijack the navigation
-        }
-    }
-
-    var views = document.querySelectorAll('.view');
-    var header = document.getElementById('main-header');
-    
-    views.forEach(function(view) {
-        if (view.id === viewId) {
-            view.classList.remove('hidden');
-            view.classList.add('active');
-
-            // --- VIEW SPECIFIC LOGIC ---
-            if (viewId === 'main-menu') {
-                // Reset content
-                var musicOutput = document.getElementById('music-output');
-                if(musicOutput) musicOutput.innerHTML = "Druk op 'Start Lied' om te beginnen.";
-                var f1Output = document.getElementById('f1-output');
-                if(f1Output) f1Output.innerHTML = "Druk op 'Nieuwe Vraag' om te starten.";
-                var f1Btn = document.getElementById('f1-answer-btn');
-                if(f1Btn) f1Btn.style.display = 'none';
-                var boardOutput = document.getElementById('board-output');
-                if(boardOutput) boardOutput.innerHTML = "Trek een kaart...";
-                var musicAnsBtn = document.getElementById('music-answer-btn');
-                if(musicAnsBtn) musicAnsBtn.style.display = 'none';
-                var musicBackBtn = document.getElementById('music-back-btn');
-                if(musicBackBtn) musicBackBtn.style.display = 'none';
-                
-                if (header) header.style.display = 'block';
-                window.playMainMenuAudio(); // Ensure music is on
-
-            } else if (viewId === 'react-view') {
-                 if (header) header.style.display = 'none';
-                 // Music CONTINUES in react view (verrassing popup)
-                 window.playMainMenuAudio();
-
-            } else if (viewId === 'music-view') {
-                // Music STOPS in Music Quiz
-                window.stopMainMenuAudio(); 
-                if (header) header.style.display = 'block';
-
-            } else {
-                // F1 View, Board View -> Music continues
-                window.playMainMenuAudio();
-                if (header) header.style.display = 'block';
-            }
-
-        } else {
-            view.classList.remove('active');
-            view.classList.add('hidden');
-        }
-    });
-    // No scroll to 0 needed because we fixed the body height
-};
-
-// Quiz Functies
-window.startMusicQuiz = function() {
-    var outputDiv = document.getElementById('music-output');
-    var answerBtn = document.getElementById('music-answer-btn');
-    var backBtn = document.getElementById('music-back-btn');
-
-    var randomIndex = getNextIndex(musicTracks, usedMusicIndices);
-    var track = musicTracks[randomIndex];
-    currentMusicTrack = track; 
-    // Append year to answer for display
-    currentMusicAnswer = `${track.label} (${track.year})`; 
-
-    var outputHTML = `
-        <p class="text-sm text-gray-500 mb-2">Opdracht</p>
-        <p class="font-bold mb-4">Is dit nummer uitgebracht<br> <span class="text-green-600">Vóór 2000</span> of <span class="text-blue-600">Ná 2000</span>?</p>
-        <a href="${track.url}" target="_blank" class="bg-black text-white py-3 px-6 rounded-full inline-flex items-center gap-2 shadow-lg hover:scale-105 transition-transform">
-            <span>🎧</span> Open in Spotify
-        </a>
-        <div class="text-xs text-gray-400 mt-2">${track.title}</div>
-        <p id="music-answer" style="display: none; color: #e30613; font-weight: bold; margin-top: 20px; font-size: 1.2rem; border-top: 1px solid #ddd; padding-top: 10px;">
-            Antwoord: ${currentMusicAnswer}
-        </p>
-    `;
-
-    outputDiv.innerHTML = outputHTML;
-    answerBtn.style.display = 'block';
-    backBtn.style.display = 'none';
-};
-
-window.showMusicAnswer = function() {
-    var answerText = document.getElementById('music-answer');
-    var answerBtn = document.getElementById('music-answer-btn');
-    var backBtn = document.getElementById('music-back-btn');
-
-    if (answerText) {
-        answerText.style.display = 'block';
-        answerBtn.style.display = 'none'; 
-        backBtn.style.display = 'block'; 
-    }
-};
-
-window.startF1Quiz = function() {
-    var outputDiv = document.getElementById('f1-output');
-    var answerBtn = document.getElementById('f1-answer-btn');
-
-    var randomIndex = getNextIndex(f1Questions, usedF1Indices);
-    currentF1Question = f1Questions[randomIndex];
-
-    var category = currentF1Question.question.match(/\((.*?)\)/) ? currentF1Question.question.match(/\((.*?)\)/)[1] : 'Algemeen';
-    var questionText = currentF1Question.question.replace(/\s*\(.*?\)\s*/g, '');
-
-    outputDiv.innerHTML = `
-        <div style="margin-bottom:10px;"><span class="badge" style="background:#cbd5e1; color:#334155;">${category}</span></div>
-        <p style="font-weight:bold; font-size:1.1rem;">${questionText}</p>
-        <p id="f1-answer" style="display: none; color: #e30613; font-weight: bold; margin-top: 15px; padding-top:15px; border-top:1px solid #ddd;">
-            ${currentF1Question.answer}
-        </p>
-    `;
-    answerBtn.style.display = 'block';
-};
-
-window.showF1Answer = function() {
-    var answerText = document.getElementById('f1-answer');
-    var answerBtn = document.getElementById('f1-answer-btn');
-
-    if (answerText) {
-        answerText.style.display = 'block';
-        answerBtn.style.display = 'none';
-    }
-};
-
-window.getBoardCommand = function() {
-    var outputDiv = document.getElementById('board-output');
-    var randomIndex = Math.floor(Math.random() * boardCommands.length);
-    var command = boardCommands[randomIndex];
-
-    var movementColor = command.movement > 0 ? '#16a34a' : (command.movement < 0 ? '#dc2626' : '#475569');
-    var movementText;
-    if (command.movement > 0) {
-        movementText = `Ga ${command.movement} stap(pen) vooruit`;
-    } else if (command.movement < 0) {
-        movementText = `Ga ${Math.abs(command.movement)} stap(pen) achteruit`;
-    } else {
-        movementText = `Blijf staan`;
-    }
-
-    outputDiv.innerHTML = `
-        <p style="margin-bottom: 20px;">${command.command}</p>
-        <div style="background: ${movementColor}; color: white; padding: 10px; border-radius: 8px; font-weight: bold;">
-            ${movementText}
-        </div>
-    `;
-};
-
-// --- STATE VARIABLES ---
+// --- GLOBAL VARIABLES ---
+var userWantsMusic = false; // Tracks if user explicitly enabled music
+var mainMenuAudio = null;
+var isAudioPlaying = false;
 var currentF1Question = null;
 var currentMusicTrack = null;
 var currentMusicAnswer = null;
-var mainMenuAudio = null;
-var isAudioPlaying = false;
 var usedMusicIndices = []; 
 var usedF1Indices = [];
 
 // --- DATA ARRAYS ---
-// Note: Years removed from title property and added as separate property
 var musicTracks = [
-    // Nummers NA 2000
     { url: "https://open.spotify.com/track/4BC2WQKrZdqMX6rHsvVbUy", label: "Na 2000", title: "Link 32", year: "2000" },
     { url: "https://open.spotify.com/track/3BCqG9GBF7GjJQHwJvlqSv", label: "Na 2000", title: "Link 33", year: "2000" },
     { url: "https://open.spotify.com/track/3APHT3KjbHi9OllkVQsuXF", label: "Na 2000", title: "Link 46", year: "2000" },
@@ -278,8 +39,6 @@ var musicTracks = [
     { url: "https://open.spotify.com/track/1j8GQQGyC26O1TeW4LLvjk", label: "Na 2000", title: "Link 47", year: "2023" },
     { url: "https://open.spotify.com/track/2ibiwyQF66OWBgJWW0tIF0", label: "Na 2000", title: "Link 53", year: "2023" },
     { url: "https://open.spotify.com/track/1g9GiiPPaL7KcDHlDzu7lT", label: "Na 2000", title: "Link 55", year: "2025" },
-
-    // Nummers VOOR 2000
     { url: "https://open.spotify.com/track/4CCLOGJX19mWFBDHSnifm9", label: "Voor 2000", title: "Link 102", year: "1970" }, 
     { url: "https://open.spotify.com/track/2EqlS6tkEnglzr7tkKAAYD", label: "Voor 2000", title: "Link 104", year: "1970" }, 
     { url: "https://open.spotify.com/track/3GIChxHmuLmBm5PTNZGDtj", label: "Voor 2000", title: "Link 105", year: "1977" }, 
@@ -370,25 +129,238 @@ var boardCommands = [
     { command: "Perfecte Inhaalactie: Ga **4 stappen** vooruit.", movement: 4 },
 ];
 
-// --- INITIALIZATION ---
-document.addEventListener('DOMContentLoaded', function() {
-    var f1Btn = document.getElementById('f1-answer-btn');
-    if (f1Btn) f1Btn.style.display = 'none';
-    var musicAnsBtn = document.getElementById('music-answer-btn');
-    if (musicAnsBtn) musicAnsBtn.style.display = 'none';
-    var musicBackBtn = document.getElementById('music-back-btn');
-    if (musicBackBtn) musicBackBtn.style.display = 'none';
+// --- HELPER FUNCTIONS ---
+function getNextIndex(questions, usedIndices) {
+    if (usedIndices.length === questions.length) {
+        usedIndices.length = 0;
+        console.log("Quizlijst is op, start opnieuw.");
+    }
+    let randomIndex;
+    do {
+        randomIndex = Math.floor(Math.random() * questions.length);
+    } while (usedIndices.includes(randomIndex));
+    usedIndices.push(randomIndex);
+    return randomIndex;
+}
+
+// --- AUDIO FUNCTIONS ---
+window.updateAudioButtonState = function() {
+    var btn = document.getElementById('audio-toggle-btn');
+    if (!btn) return;
+    if (userWantsMusic) {
+        btn.innerHTML = "🔇 Muziek uit";
+        btn.style.background = "#cbd5e1";
+        btn.style.color = "#475569";
+    } else {
+        btn.innerHTML = "▶️ Muziek aan";
+        btn.style.background = "#e30613";
+        btn.style.color = "white";
+    }
+};
+
+window.playMainMenuAudio = function() {
+    // Only play if the user actually wanted music
+    if (!userWantsMusic) return;
+
+    var audioUrl = "Tellen Tot 10.mp3"; 
+    if (!mainMenuAudio || mainMenuAudio.paused) {
+        try {
+            if (!mainMenuAudio) {
+                mainMenuAudio = new Audio(audioUrl);
+                mainMenuAudio.loop = true; 
+                mainMenuAudio.addEventListener('error', function(e) {
+                    // Fail silently
+                    isAudioPlaying = false;
+                });
+            }
+            var playPromise = mainMenuAudio.play();
+            if (playPromise !== undefined) {
+                playPromise.then(function() {
+                    isAudioPlaying = true;
+                }).catch(function(error) {
+                    isAudioPlaying = false;
+                });
+            }
+        } catch (e) {
+            console.log("Audio initialization failed");
+        }
+    }
+};
+
+window.stopMainMenuAudio = function() {
+    if (mainMenuAudio) {
+        mainMenuAudio.pause();
+        isAudioPlaying = false;
+    }
+};
+
+window.toggleMainMenuAudio = function() {
+    userWantsMusic = !userWantsMusic; // Toggle preference
+    window.updateAudioButtonState();
     
-    // Ensure default view is set safely
-    if (window.showView) {
-        window.showView('main-menu', true); // True prevents random surprise on initial load
+    if (userWantsMusic) {
+        window.playMainMenuAudio();
+    } else {
+        window.stopMainMenuAudio();
+    }
+};
+
+// --- NAVIGATION ---
+window.showView = function(viewId, skipRandom) {
+    
+    // Surprise Logic
+    if (viewId === 'main-menu' && !skipRandom) {
+        if (Math.random() < 0.40) {
+            viewId = 'react-view';
+        }
     }
 
-    // EASTER EGG: Click header to force start minigames
+    var views = document.querySelectorAll('.view');
+    var header = document.getElementById('main-header');
+    
+    views.forEach(function(view) {
+        if (view.id === viewId) {
+            view.classList.remove('hidden');
+            view.classList.add('active');
+
+            // --- VIEW SPECIFIC LOGIC ---
+            if (viewId === 'main-menu') {
+                if (header) header.style.display = 'block';
+                // Reset content
+                document.getElementById('music-output').innerHTML = `
+                    <div style="text-align:center; padding:20px;">
+                        <p style="margin-bottom:20px;">Klaar voor de start?</p>
+                        <button onclick="startMusicQuiz()" class="action-btn primary">Start Nieuw Lied</button>
+                    </div>`;
+                document.getElementById('f1-output').innerHTML = `
+                    <div style="text-align:center; padding:20px;">
+                        <p style="margin-bottom:20px;">Test je kennis!</p>
+                        <button onclick="startF1Quiz()" class="action-btn primary">Nieuwe Vraag</button>
+                    </div>`;
+                document.getElementById('board-output').innerHTML = `
+                     <div style="text-align:center; padding:20px;">
+                        <p style="margin-bottom:20px;">Pak een kaart...</p>
+                        <button onclick="getBoardCommand()" class="action-btn primary">Trek Kaart</button>
+                    </div>`;
+                
+                // Audio: Play if user wants it
+                if (userWantsMusic) window.playMainMenuAudio();
+
+            } else if (viewId === 'react-view') {
+                 if (header) header.style.display = 'none';
+                 // Audio: ALWAYS OFF in minigames
+                 window.stopMainMenuAudio();
+
+            } else if (viewId === 'music-view') {
+                if (header) header.style.display = 'block';
+                // Audio: ALWAYS OFF in Music Quiz
+                window.stopMainMenuAudio(); 
+
+            } else {
+                // F1 / Board
+                if (header) header.style.display = 'block';
+                // Audio: Play if user wants it
+                if (userWantsMusic) window.playMainMenuAudio();
+            }
+
+        } else {
+            view.classList.remove('active');
+            view.classList.add('hidden');
+        }
+    });
+};
+
+// --- QUIZ FUNCTIONS (Buttons moved inside output) ---
+window.startMusicQuiz = function() {
+    var outputDiv = document.getElementById('music-output');
+    var randomIndex = getNextIndex(musicTracks, usedMusicIndices);
+    var track = musicTracks[randomIndex];
+    currentMusicTrack = track; 
+    currentMusicAnswer = `${track.label} (${track.year})`; 
+
+    outputDiv.innerHTML = `
+        <p class="text-sm text-gray-500 mb-2">Opdracht</p>
+        <p class="font-bold mb-4">Is dit nummer uitgebracht<br> <span class="text-green-600">Vóór 2000</span> of <span class="text-blue-600">Ná 2000</span>?</p>
+        <a href="${track.url}" target="_blank" class="bg-black text-white py-3 px-6 rounded-full inline-flex items-center gap-2 shadow-lg hover:scale-105 transition-transform">
+            <span>🎧</span> Open in Spotify
+        </a>
+        <div class="text-xs text-gray-400 mt-2 mb-4">${track.title}</div>
+        <button onclick="showMusicAnswer()" class="action-btn warning">Toon Antwoord</button>
+    `;
+};
+
+window.showMusicAnswer = function() {
+    var outputDiv = document.getElementById('music-output');
+    // Re-render content with answer revealed
+    outputDiv.innerHTML = `
+        <p class="text-sm text-gray-500 mb-2">Opdracht</p>
+        <p class="font-bold mb-4">Is dit nummer uitgebracht<br> <span class="text-green-600">Vóór 2000</span> of <span class="text-blue-600">Ná 2000</span>?</p>
+        <div class="text-xs text-gray-400 mt-2 mb-4">${currentMusicTrack ? currentMusicTrack.title : ''}</div>
+        <p style="color: #e30613; font-weight: bold; font-size: 1.2rem; border-top: 1px solid #ddd; padding-top: 10px; margin-bottom: 20px;">
+            Antwoord: ${currentMusicAnswer}
+        </p>
+        <button onclick="startMusicQuiz()" class="action-btn primary">Volgend Lied</button>
+    `;
+};
+
+window.startF1Quiz = function() {
+    var outputDiv = document.getElementById('f1-output');
+    var randomIndex = getNextIndex(f1Questions, usedF1Indices);
+    currentF1Question = f1Questions[randomIndex];
+
+    var category = currentF1Question.question.match(/\((.*?)\)/) ? currentF1Question.question.match(/\((.*?)\)/)[1] : 'Algemeen';
+    var questionText = currentF1Question.question.replace(/\s*\(.*?\)\s*/g, '');
+
+    outputDiv.innerHTML = `
+        <div style="margin-bottom:10px;"><span class="badge" style="background:#cbd5e1; color:#334155;">${category}</span></div>
+        <p style="font-weight:bold; font-size:1.1rem; margin-bottom: 20px;">${questionText}</p>
+        <button onclick="showF1Answer()" class="action-btn warning">Toon Antwoord</button>
+    `;
+};
+
+window.showF1Answer = function() {
+    var outputDiv = document.getElementById('f1-output');
+    // Keep question visible, add answer and Next button
+    var category = currentF1Question.question.match(/\((.*?)\)/) ? currentF1Question.question.match(/\((.*?)\)/)[1] : 'Algemeen';
+    var questionText = currentF1Question.question.replace(/\s*\(.*?\)\s*/g, '');
+
+    outputDiv.innerHTML = `
+        <div style="margin-bottom:10px;"><span class="badge" style="background:#cbd5e1; color:#334155;">${category}</span></div>
+        <p style="font-weight:bold; font-size:1.1rem; margin-bottom: 20px;">${questionText}</p>
+        <p style="color: #e30613; font-weight: bold; padding-top:15px; border-top:1px solid #ddd; margin-bottom: 20px;">
+            ${currentF1Question.answer}
+        </p>
+        <button onclick="startF1Quiz()" class="action-btn primary">Volgende Vraag</button>
+    `;
+};
+
+window.getBoardCommand = function() {
+    var outputDiv = document.getElementById('board-output');
+    var randomIndex = Math.floor(Math.random() * boardCommands.length);
+    var command = boardCommands[randomIndex];
+
+    var movementColor = command.movement > 0 ? '#16a34a' : (command.movement < 0 ? '#dc2626' : '#475569');
+    var movementText = command.movement > 0 ? `Ga ${command.movement} stap(pen) vooruit` : 
+                       (command.movement < 0 ? `Ga ${Math.abs(command.movement)} stap(pen) achteruit` : `Blijf staan`);
+
+    outputDiv.innerHTML = `
+        <p style="margin-bottom: 20px; font-size: 1.1rem;">${command.command}</p>
+        <div style="background: ${movementColor}; color: white; padding: 10px; border-radius: 8px; font-weight: bold; margin-bottom: 20px;">
+            ${movementText}
+        </div>
+        <button onclick="getBoardCommand()" class="action-btn primary">Nieuwe Kaart</button>
+    `;
+};
+
+// --- INITIALIZATION ---
+document.addEventListener('DOMContentLoaded', function() {
+    // Set initial content via innerHTML on load to ensure buttons are present
+    if (window.showView) window.showView('main-menu', true);
+
     var header = document.getElementById('main-header');
     if (header) {
         header.addEventListener('click', function() {
-            console.log("Easter egg triggered: Forcing minigame view");
+            console.log("Easter egg: Minigames");
             window.showView('react-view', true);
         });
     }

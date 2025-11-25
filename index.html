@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="nl">
 <head>
@@ -6,7 +7,7 @@
     <title>Spel Aanvulling - Race & Muziek</title>
     <link rel="stylesheet" href="style.css">
     
-    <!-- React & Tailwind Integration -->
+    <!-- React & Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -36,7 +37,6 @@
       }
     </script>
     
-    <!-- Import Map for React -->
     <script type="importmap">
 {
   "imports": {
@@ -47,21 +47,18 @@
   }
 }
 </script>
-    <!-- Babel for JSX support in browser -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <!-- Safety Script -->
     <script>
       (function() {
         function fallbackShowView(viewId, skipRandom) {
-           console.log("Fallback showView triggered for:", viewId);
            var views = document.querySelectorAll('.view');
            views.forEach(function(v) { 
              v.classList.toggle('hidden', v.id !== viewId);
              v.classList.toggle('active', v.id === viewId);
            });
         }
-
         window.showView = window.showView || fallbackShowView;
         window.startMusicQuiz = window.startMusicQuiz || function() {};
         window.startF1Quiz = window.startF1Quiz || function() {};
@@ -73,22 +70,16 @@
     </script>
 </head>
 <body>
-    <!-- Fixed Header -->
     <header id="main-header">
         <h1>🏎️ Spel Aanvulling</h1>
     </header>
 
-    <!-- Main Content Container -->
     <main>
-        <!-- Main Menu View -->
+        <!-- Main Menu -->
         <div id="main-menu" class="view active full-height-view">
             <div class="menu-content">
                 <h2>Kies je Spel</h2>
-                
-                <!-- Button Grid: Flex Column ensures they stack -->
                 <div class="button-grid">
-                    
-                    <!-- Button 1: Music -->
                     <button class="game-btn btn-spotify" onclick="showView('music-view')">
                         <span class="icon">🎵</span>
                         <div class="btn-content">
@@ -96,8 +87,6 @@
                             <span class="sub">Spotify Raadspel</span>
                         </div>
                     </button>
-                    
-                    <!-- Button 2: F1 -->
                     <button class="game-btn btn-f1" onclick="showView('f1-view')">
                         <span class="icon">🏁</span>
                         <div class="btn-content">
@@ -105,8 +94,6 @@
                             <span class="sub">Techniek & Max</span>
                         </div>
                     </button>
-                    
-                    <!-- Button 3: Board -->
                     <button class="game-btn btn-board" onclick="showView('board-view')">
                         <span class="icon">🎲</span>
                         <div class="btn-content">
@@ -114,12 +101,10 @@
                             <span class="sub">Pak een Kaart</span>
                         </div>
                     </button>
-
                 </div>
             </div>
-
             <div class="menu-footer">
-                <button id="audio-toggle-btn" onclick="toggleMainMenuAudio()" class="audio-btn">🔇 Muziek Uit</button>
+                <button id="audio-toggle-btn" onclick="toggleMainMenuAudio()" class="audio-btn">▶️ Muziek aan</button>
             </div>
         </div>
 
@@ -128,18 +113,19 @@
             <div class="game-card">
                 <div class="card-header spotify-header">
                     <h2>🎵 Muziekquiz</h2>
-                    <span class="badge">Voor of Na 2000?</span>
                 </div>
                 <div class="card-body">
-                    <div id="music-output" class="output-box">Druk op start...</div>
+                    <!-- Buttons are injected here via JS -->
+                    <div id="music-output" class="output-box">
+                         <div style="text-align:center; padding:20px;">
+                            <p style="margin-bottom:20px;">Klaar voor de start?</p>
+                            <button onclick="startMusicQuiz()" class="action-btn primary">Start Nieuw Lied</button>
+                        </div>
+                    </div>
                 </div>
-                <div class="card-actions">
-                    <button onclick="startMusicQuiz()" class="action-btn primary">Start Nieuw Lied</button>
-                    <button id="music-answer-btn" onclick="showMusicAnswer()" class="action-btn warning" style="display: none;">Toon Antwoord</button>
-                    <button id="music-back-btn" onclick="showView('main-menu')" class="action-btn secondary" style="display: none;">↩️ Terug</button>
+                <div class="menu-footer" style="background: white; border-top: 1px solid #eee;">
+                     <button onclick="showView('main-menu')" class="action-btn secondary" style="margin:0;">↩️ Terug</button>
                 </div>
-                <!-- Initial Back Button (hidden when game active) -->
-                <button onclick="showView('main-menu')" class="text-btn top-right-close">✕</button>
             </div>
         </div>
 
@@ -148,15 +134,17 @@
              <div class="game-card">
                 <div class="card-header f1-header">
                     <h2>🏁 F1 Quiz</h2>
-                    <span class="badge">Expert Vragen</span>
                 </div>
                 <div class="card-body">
-                    <div id="f1-output" class="output-box">Klaar voor de start?</div>
+                    <div id="f1-output" class="output-box">
+                         <div style="text-align:center; padding:20px;">
+                            <p style="margin-bottom:20px;">Test je kennis!</p>
+                            <button onclick="startF1Quiz()" class="action-btn primary">Nieuwe Vraag</button>
+                        </div>
+                    </div>
                 </div>
-                <div class="card-actions">
-                    <button onclick="startF1Quiz()" class="action-btn primary">Nieuwe Vraag</button>
-                    <button id="f1-answer-btn" onclick="showF1Answer()" class="action-btn warning" style="display: none;">Toon Antwoord</button>
-                    <button onclick="showView('main-menu')" class="action-btn secondary">↩️ Terug</button>
+                <div class="menu-footer" style="background: white; border-top: 1px solid #eee;">
+                     <button onclick="showView('main-menu')" class="action-btn secondary" style="margin:0;">↩️ Terug</button>
                 </div>
             </div>
         </div>
@@ -166,25 +154,26 @@
              <div class="game-card">
                 <div class="card-header board-header">
                     <h2>🎲 Opdracht</h2>
-                    <span class="badge">Actie Kaart</span>
                 </div>
                 <div class="card-body centered-content">
-                    <div id="board-output" class="output-box large-text"></div>
+                    <div id="board-output" class="output-box large-text">
+                        <div style="text-align:center; padding:20px;">
+                            <p style="margin-bottom:20px;">Pak een kaart...</p>
+                            <button onclick="getBoardCommand()" class="action-btn primary">Trek Kaart</button>
+                        </div>
+                    </div>
                 </div>
-                <div class="card-actions">
-                    <button onclick="getBoardCommand()" class="action-btn primary">Trek Kaart</button>
-                    <button onclick="showView('main-menu')" class="action-btn secondary">↩️ Terug</button>
+                <div class="menu-footer" style="background: white; border-top: 1px solid #eee;">
+                     <button onclick="showView('main-menu')" class="action-btn secondary" style="margin:0;">↩️ Terug</button>
                 </div>
             </div>
         </div>
     </main>
     
-    <!-- React Container (Popup Overlay) -->
+    <!-- React Container -->
     <div id="react-view" class="view hidden"></div>
     
     <script src="script.js" defer></script>
-    
-    <!-- Mount React App with Babel -->
     <script type="text/babel" data-type="module" src="index.js"></script>
 </body>
 </html>
