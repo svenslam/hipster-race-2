@@ -79,6 +79,17 @@ main {
     flex-direction: column;
 }
 
+#main-menu {
+    background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%); /* Dark Blue Gradient */
+    border-radius: 20px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+}
+
+#main-menu .menu-content h2 {
+    color: #ffffff;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.4);
+}
+
 .menu-content {
     flex: 1;
     display: flex;

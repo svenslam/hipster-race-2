@@ -702,6 +702,9 @@ const AgilityGame = ({ onGameOver, onBack }) => {
           // Update Obstacles
           state.obstacles.forEach(obs => obs.x -= state.scrollSpeed);
           state.obstacles = state.obstacles.filter(obs => obs.x > -50);
+          
+          // Scroll the spawn point as well so it doesn't drift away
+          state.nextObstacleX -= state.scrollSpeed;
 
           // Update Powerup
           if (state.powerup) {
