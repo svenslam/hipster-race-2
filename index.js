@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom/client';
-import { Trophy, RotateCcw, LogOut, Loader2, X, Play, Music, Target } from 'lucide-react';
+import { Trophy, RotateCcw, LogOut, Loader2, X, Play, Music, Target, Activity } from 'lucide-react';
 
 const GameType = {
   F1: 'FORMULE_1',
@@ -18,7 +18,7 @@ const WheelSelector = ({ onSpinComplete, isSpinningExternal }) => {
     { type: GameType.F1, color: '#ef4444', label: 'F1 Start', icon: '🏎️' },
     { type: GameType.MUSIC, color: '#3b82f6', label: 'Muziek', icon: '🎵' },
     { type: GameType.SINTERKLAAS, color: '#eab308', label: 'Sint', icon: '🎁' },
-    { type: GameType.AGILITY, color: '#10b981', label: 'Reflex', icon: '⚡' },
+    { type: GameType.AGILITY, color: '#10b981', label: 'Hartslag', icon: '💓' },
   ];
 
   const spin = () => {
@@ -458,7 +458,6 @@ const SinterklaasGame = ({ onGameOver, onBack }) => {
     }
 
     // Collision (Simplified)
-    // ... collision logic kept same as before but compressed for brevity
     const playerRect = { l: 20, r: 28, t: birdYRef.current, b: birdYRef.current + 8 };
     for (const obs of obstaclesRef.current) {
         if (playerRect.l < obs.x + 15 && playerRect.r > obs.x && playerRect.b > 100 - obs.height) { endGame(false); return; }
@@ -512,80 +511,308 @@ const SinterklaasGame = ({ onGameOver, onBack }) => {
 };
 
 const AgilityGame = ({ onGameOver, onBack }) => {
-  const [score, setScore] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(15);
-  const [targetPos, setTargetPos] = useState({ top: 50, left: 50 });
-  const [gameStarted, setGameStarted] = useState(false);
-  const timerRef = useRef(null);
+  const canvasRef = useRef(null);
+  const requestRef = useRef(null);
   const audioCtxRef = useRef(null);
 
+  // Game State Refs (Mutable for loop)
+  const gameStateRef = useRef({
+    startTime: 0,
+    gameTime: 0,
+    isGameOver: false,
+    score: 0,
+    player: { x: 0, y: 0, velocityY: 0, isJumping: false, groundY: 0, springYOffset: 0, springSpeed: 0 },
+    obstacles: [],
+    powerup: null,
+    nextPowerupTime: 0,
+    nextObstacleX: 0,
+    patternIndex: 0,
+    scrollSpeed: 3,
+    beatSpacing: 200,
+    rhythmPattern: [1, -1, -1],
+    hasStarted: false
+  });
+
+  const [uiState, setUiState] = useState({ score: 0, time: 0, gameOver: false, started: false });
+
+  // Constants
+  const GAME_DURATION = 30;
+  const GROUND_Y = 320; // Adjusted for responsive canvas
+  const LINE_Y = 330;
+  const OBSTACLE_HEIGHT = 40;
+  const POWERUP_INTERVAL = 8;
+
   useEffect(() => {
-    try { const AudioContext = window.AudioContext || window.webkitAudioContext; if (AudioContext) audioCtxRef.current = new AudioContext(); } catch(e) {}
-    setGameStarted(true);
-    moveTarget();
-    timerRef.current = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          if (timerRef.current) clearInterval(timerRef.current);
-          setTimeout(() => { onGameOver({ score: 0, message: '' }); }, 0);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (AudioContext) audioCtxRef.current = new AudioContext();
+    } catch (e) { console.error(e); }
+
+    const canvas = canvasRef.current;
+    if (canvas) {
+       // Set Canvas Size
+       canvas.width = window.innerWidth;
+       canvas.height = window.innerHeight;
+       // Init Player
+       gameStateRef.current.player.x = canvas.width / 4;
+       gameStateRef.current.player.groundY = canvas.height - 100;
+       gameStateRef.current.player.y = canvas.height - 100;
+       gameStateRef.current.nextObstacleX = canvas.width;
+    }
+
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
+      if (requestRef.current) cancelAnimationFrame(requestRef.current);
       if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') { try { audioCtxRef.current.close(); } catch(e) {} }
     };
   }, []);
 
-  useEffect(() => {
-    if (timeLeft === 0) onGameOver({ score, message: `Reflex test: ${score} hits in 15s!` });
-  }, [timeLeft, score, onGameOver]);
-
-  const playPop = () => {
+  const playTone = (freq, type, duration, gainVal = 0.3) => {
     if (!audioCtxRef.current) return;
     try {
+      if(audioCtxRef.current.state === 'suspended') audioCtxRef.current.resume();
       const osc = audioCtxRef.current.createOscillator();
       const gain = audioCtxRef.current.createGain();
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(300 + Math.random() * 200, audioCtxRef.current.currentTime);
-      gain.gain.setValueAtTime(0.1, audioCtxRef.current.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, audioCtxRef.current.currentTime + 0.1);
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, audioCtxRef.current.currentTime);
+      gain.gain.setValueAtTime(gainVal, audioCtxRef.current.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtxRef.current.currentTime + duration);
       osc.connect(gain);
       gain.connect(audioCtxRef.current.destination);
       osc.start();
-      osc.stop(audioCtxRef.current.currentTime + 0.1);
-    } catch (e) {}
+      osc.stop(audioCtxRef.current.currentTime + duration);
+    } catch(e) {}
   };
 
-  const moveTarget = () => {
-    const top = Math.floor(Math.random() * 70) + 15; 
-    const left = Math.floor(Math.random() * 70) + 15;
-    setTargetPos({ top, left });
+  const playWinSound = () => {
+      playTone(523.25, 'sine', 0.1); 
+      setTimeout(() => playTone(659.25, 'sine', 0.1), 100); 
+      setTimeout(() => playTone(783.99, 'sine', 0.2), 200); 
+  };
+  const playLoseSound = () => {
+      playTone(440.00, 'square', 0.1); 
+      setTimeout(() => playTone(392.00, 'square', 0.1), 100); 
+      setTimeout(() => playTone(349.23, 'square', 0.2), 200);
   };
 
-  const handleHit = (e) => {
-    e.preventDefault(); 
-    setScore(s => s + 1);
-    playPop();
-    if (navigator.vibrate) navigator.vibrate(30);
-    moveTarget();
+  const initGame = () => {
+     const state = gameStateRef.current;
+     const canvas = canvasRef.current;
+     
+     state.hasStarted = true;
+     state.isGameOver = false;
+     state.startTime = Date.now();
+     state.gameTime = 0;
+     state.score = 0;
+     state.obstacles = [];
+     state.powerup = null;
+     state.nextPowerupTime = 0;
+     state.scrollSpeed = 3;
+     state.beatSpacing = 200;
+     state.player.y = state.player.groundY;
+     state.player.velocityY = 0;
+     state.player.isJumping = false;
+     state.nextObstacleX = canvas.width;
+
+     setUiState({ score: 0, time: 0, gameOver: false, started: true });
+     
+     if (requestRef.current) cancelAnimationFrame(requestRef.current);
+     requestRef.current = requestAnimationFrame(gameLoop);
+  };
+
+  const jump = () => {
+    const state = gameStateRef.current;
+    if (!state.hasStarted) {
+        initGame();
+        return;
+    }
+    if (!state.player.isJumping && !state.isGameOver) {
+        state.player.isJumping = true;
+        state.player.velocityY = -15; // Jump Strength
+        playTone(150, 'square', 0.1); // Jump Sound
+    } else if (state.isGameOver) {
+        // Restart logic if needed, but App usually handles it via prop
+    }
+  };
+
+  const updateRhythm = (timeFactor) => {
+      const state = gameStateRef.current;
+      let speedFactor = 1.0 + timeFactor * 3.0;
+      state.scrollSpeed = 3 * speedFactor;
+      // Recalc beat spacing based on speed
+      const currentBPM = 100 * speedFactor;
+      const secondsPerBeat = 60 / currentBPM;
+      state.beatSpacing = state.scrollSpeed * (secondsPerBeat * 60);
+      if (state.beatSpacing < 80) state.beatSpacing = 80;
+      if (state.beatSpacing > 300) state.beatSpacing = 300;
+  };
+
+  const spawnEntities = (canvas) => {
+      const state = gameStateRef.current;
+      // Obstacles
+      if (state.nextObstacleX < canvas.width + state.beatSpacing) {
+          const type = state.rhythmPattern[state.patternIndex];
+          if (type === 1) playTone(1000, 'square', 0.05, 0.1); // Cardio Beep
+          
+          state.obstacles.push({ x: state.nextObstacleX, type: type, size: 20, hasScored: false });
+          state.nextObstacleX += state.beatSpacing;
+          state.patternIndex = (state.patternIndex + 1) % state.rhythmPattern.length;
+      }
+      // Powerup
+      if (state.gameTime >= state.nextPowerupTime && state.powerup === null) {
+          state.powerup = { x: canvas.width + 50, y: state.player.groundY - 100, radius: 12 };
+          state.nextPowerupTime = state.gameTime + POWERUP_INTERVAL;
+      }
+  };
+
+  const gameLoop = () => {
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      const state = gameStateRef.current;
+
+      state.gameTime = (Date.now() - state.startTime) / 1000;
+      
+      // Update UI occasionally or every frame
+      setUiState(prev => ({ ...prev, score: state.score, time: state.gameTime, gameOver: state.isGameOver }));
+
+      // Win Condition
+      if (state.gameTime >= GAME_DURATION && !state.isGameOver) {
+          state.isGameOver = true;
+          playWinSound();
+          setTimeout(() => onGameOver({ score: state.score, message: `Hartslag Ritme: ${state.score} punten!` }), 2000);
+      }
+
+      // Clear
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Line
+      const lineY = state.player.groundY + 10;
+      ctx.strokeStyle = '#ff4500';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, lineY);
+      ctx.lineTo(canvas.width, lineY);
+      ctx.stroke();
+
+      if (!state.isGameOver) {
+          const timeFactor = Math.min(state.gameTime / GAME_DURATION, 1);
+          updateRhythm(timeFactor);
+          spawnEntities(canvas);
+
+          // Update Obstacles
+          state.obstacles.forEach(obs => obs.x -= state.scrollSpeed);
+          state.obstacles = state.obstacles.filter(obs => obs.x > -50);
+
+          // Update Powerup
+          if (state.powerup) {
+              state.powerup.x -= state.scrollSpeed;
+              if (state.powerup.x < -50) state.powerup = null;
+          }
+
+          // Update Player
+          if (state.player.isJumping || state.player.y < state.player.groundY) {
+              state.player.velocityY += 0.8; // Gravity
+              state.player.y += state.player.velocityY;
+          }
+          if (state.player.y > state.player.groundY) {
+              state.player.y = state.player.groundY;
+              state.player.velocityY = 0;
+              state.player.isJumping = false;
+          }
+
+          // Collisions & Score
+          state.obstacles.forEach(obs => {
+               // Hit box check (Player is circle approx 15 radius)
+               const pX = state.player.x;
+               const pY = state.player.y - 25; // Center of body
+               
+               if (obs.x > pX - 20 && obs.x < pX + 20) {
+                   if (obs.type === 1) { // Spike
+                       if (state.player.y > lineY - OBSTACLE_HEIGHT) {
+                           state.isGameOver = true;
+                           playLoseSound();
+                           setTimeout(() => onGameOver({ score: state.score, message: `Hartstilstand! Score: ${state.score}` }), 1500);
+                       }
+                   }
+               }
+               // Score pass
+               if (obs.type === 1 && !obs.hasScored && obs.x < pX - 20) {
+                   state.score++;
+                   obs.hasScored = true;
+               }
+          });
+
+          // Powerup Collision
+          if (state.powerup) {
+              const dx = state.player.x - state.powerup.x;
+              const dy = (state.player.y - 40) - state.powerup.y;
+              if (Math.sqrt(dx*dx + dy*dy) < 30) {
+                  state.score += 2;
+                  playTone(1500, 'triangle', 0.1);
+                  state.powerup = null;
+              }
+          }
+      }
+
+      // DRAWING
+      // Obstacles
+      state.obstacles.forEach(obs => {
+          ctx.beginPath();
+          const color = obs.type === 1 ? '#ff4500' : '#0080ff';
+          ctx.fillStyle = color;
+          ctx.moveTo(obs.x - 10, lineY);
+          ctx.lineTo(obs.x, lineY - (obs.type === 1 ? OBSTACLE_HEIGHT : -OBSTACLE_HEIGHT));
+          ctx.lineTo(obs.x + 10, lineY);
+          ctx.fill();
+      });
+
+      // Powerup
+      if (state.powerup) {
+          ctx.beginPath();
+          ctx.fillStyle = '#00ffff';
+          ctx.arc(state.powerup.x, state.powerup.y, 10 + Math.sin(state.gameTime * 10)*2, 0, Math.PI*2);
+          ctx.fill();
+      }
+
+      // Player
+      const pX = state.player.x;
+      const pY = state.player.y;
+      
+      // Body
+      ctx.strokeStyle = '#00ff41';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(pX, pY - 25, 10, 0, Math.PI*2); // Body
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(pX, pY - 50, 15, 0, Math.PI*2); // Head
+      ctx.stroke();
+
+      if (!state.isGameOver) {
+          requestRef.current = requestAnimationFrame(gameLoop);
+      }
   };
 
   return (
-    <div className="h-full w-full bg-slate-900 text-white flex flex-col relative select-none touch-none">
-      <div className="p-4 flex justify-between items-center z-20 bg-slate-900/80">
-        <button onClick={onBack} className="p-2 bg-slate-800 rounded-full"><X size={20}/></button>
-        <div className="flex gap-6 text-xl font-bold font-mono">
-          <div className="text-green-400">{score} Hits</div>
-          <div className={timeLeft < 5 ? "text-red-500 animate-pulse" : "text-white"}>00:{timeLeft < 10 ? `0${timeLeft}` : timeLeft}</div>
+    <div className="h-full w-full bg-black text-white flex flex-col relative select-none touch-none overflow-hidden">
+      <div className="absolute top-0 left-0 w-full p-4 flex justify-between items-center z-20 pointer-events-none">
+        <button onClick={onBack} className="pointer-events-auto p-2 bg-slate-800/80 rounded-full text-white hover:bg-slate-700"><X size={20}/></button>
+        <div className="flex gap-4 text-xl font-bold font-mono">
+            <div className="text-green-400">Score: {uiState.score}</div>
+            <div className="text-white">{uiState.time.toFixed(1)}s</div>
         </div>
       </div>
-      <div className="flex-1 relative overflow-hidden bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px]">
-        {gameStarted && timeLeft > 0 && (
-          <button onPointerDown={handleHit} className="absolute w-24 h-24 -ml-12 -mt-12 bg-game-accent rounded-full shadow-[0_0_15px_rgba(236,72,153,0.6)] border-4 border-white active:scale-90 transition-transform flex items-center justify-center animate-pulse-fast cursor-pointer tap-highlight-transparent" style={{ top: `${targetPos.top}%`, left: `${targetPos.left}%`, touchAction: 'none' }}><Target className="text-white w-12 h-12 pointer-events-none" /></button>
-        )}
+
+      <div className="flex-1 relative" onPointerDown={jump}>
+         {!uiState.started && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-30 pointer-events-none">
+                 <Activity size={64} className="text-game-primary mb-4 animate-pulse" />
+                 <h2 className="text-2xl font-bold mb-2">Hartslag Ritme</h2>
+                 <p className="text-slate-300">Tik om te springen!</p>
+                 <div className="mt-4 bg-game-primary px-6 py-3 rounded-full font-bold">TIK OM TE STARTEN</div>
+            </div>
+         )}
+         <canvas ref={canvasRef} className="w-full h-full block" />
       </div>
     </div>
   );
