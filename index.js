@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom/client';
-import { Trophy, RotateCcw, LogOut, Loader2, X, Play, Music, Target, Activity } from 'lucide-react';
+import { Trophy, RotateCcw, LogOut, Loader2, X, Play, Music, Target, Activity, ShieldAlert, Swords } from 'lucide-react';
 
 const GameType = {
   F1: 'FORMULE_1',
@@ -17,7 +17,7 @@ const WheelSelector = ({ onSpinComplete, isSpinningExternal }) => {
   const segments = [
     { type: GameType.F1, color: '#ef4444', label: 'F1 Start', icon: '🏎️' },
     { type: GameType.MUSIC, color: '#3b82f6', label: 'Muziek', icon: '🎵' },
-    { type: GameType.SINTERKLAAS, color: '#eab308', label: 'Sint', icon: '🎁' },
+    { type: GameType.SINTERKLAAS, color: '#eab308', label: 'Duel', icon: '⚔️' },
     { type: GameType.AGILITY, color: '#10b981', label: 'Hartslag', icon: '💓' },
   ];
 
@@ -336,176 +336,317 @@ const MusicGame = ({ onGameOver, onBack }) => {
   );
 };
 
+// --- VORMEN VERZAMELAARS (Shape Duel) ---
 const SinterklaasGame = ({ onGameOver, onBack }) => {
-  const [score, setScore] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(20);
-  const [gameState, setGameState] = useState('START');
-  const [birdY, setBirdY] = useState(50);
-  const [obstacles, setObstacles] = useState([]);
-  const [gifts, setGifts] = useState([]);
+  const [deck, setDeck] = useState([]);
+  const [p1Hand, setP1Hand] = useState([]);
+  const [p2Hand, setP2Hand] = useState([]);
+  const [centerTiles, setCenterTiles] = useState([]);
+  const [currentPlayer, setCurrentPlayer] = useState(1);
+  const [turnPhase, setTurnPhase] = useState('discard'); // 'discard' or 'pick'
+  const [gameActive, setGameActive] = useState(false);
+  const [timeRemaining, setTimeRemaining] = useState(60);
+  const [statusMsg, setStatusMsg] = useState('Druk op Start');
+  const [sabotageUsed, setSabotageUsed] = useState({ p1: false, p2: false });
+  const [winningPlayer, setWinningPlayer] = useState(null);
 
-  const gameStateRef = useRef('START');
-  const timeLeftRef = useRef(20);
-  const birdYRef = useRef(50);
-  const velocityRef = useRef(0);
-  const obstaclesRef = useRef([]);
-  const giftsRef = useRef([]);
-  const scoreRef = useRef(0);
-  
-  const requestRef = useRef(0);
-  const lastTimeRef = useRef(0);
-  const spawnTimerRef = useRef(0);
   const audioCtxRef = useRef(null);
+  const timerRef = useRef(null);
+
+  // Constants
+  const SHAPES = [0, 1, 2, 3, 4, 5];
+  const TOTAL_STONES_PER_SHAPE = 5;
+  const TIME_LIMIT = 60;
 
   useEffect(() => {
     try {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       if (AudioContext) audioCtxRef.current = new AudioContext();
-    } catch (e) { console.error(e); }
+    } catch (e) {}
     return () => {
-      if (requestRef.current) cancelAnimationFrame(requestRef.current);
-      if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') { try { audioCtxRef.current.close(); } catch(e) {} }
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (audioCtxRef.current) audioCtxRef.current.close();
     };
   }, []);
 
   const playSound = (type) => {
     if (!audioCtxRef.current) return;
     try {
-      const ctx = audioCtxRef.current;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
+      if (audioCtxRef.current.state === 'suspended') audioCtxRef.current.resume();
+      const osc = audioCtxRef.current.createOscillator();
+      const gain = audioCtxRef.current.createGain();
       osc.connect(gain);
-      gain.connect(ctx.destination);
-      const t = ctx.currentTime;
-      if (type === 'JUMP') {
-        osc.frequency.setValueAtTime(150, t);
-        osc.frequency.linearRampToValueAtTime(300, t + 0.1);
-        gain.gain.setValueAtTime(0.1, t);
-        gain.gain.linearRampToValueAtTime(0, t + 0.1);
-      } else {
-        osc.frequency.setValueAtTime(500, t);
-        gain.gain.setValueAtTime(0.1, t);
-        gain.gain.linearRampToValueAtTime(0, t + 0.2);
+      gain.connect(audioCtxRef.current.destination);
+      const now = audioCtxRef.current.currentTime;
+
+      if (type === 'click') {
+         osc.type = 'square'; osc.frequency.setValueAtTime(200, now);
+         gain.gain.setValueAtTime(0.05, now); gain.gain.linearRampToValueAtTime(0, now + 0.1);
+         osc.start(now); osc.stop(now + 0.1);
+      } else if (type === 'pickup') {
+         osc.type = 'triangle'; osc.frequency.setValueAtTime(500, now); osc.frequency.linearRampToValueAtTime(700, now+0.1);
+         gain.gain.setValueAtTime(0.1, now); gain.gain.linearRampToValueAtTime(0, now+0.15);
+         osc.start(now); osc.stop(now+0.15);
+      } else if (type === 'sabotage') {
+         osc.type = 'sawtooth'; osc.frequency.setValueAtTime(300, now); osc.frequency.linearRampToValueAtTime(100, now+0.4);
+         gain.gain.setValueAtTime(0.2, now); gain.gain.linearRampToValueAtTime(0, now+0.4);
+         osc.start(now); osc.stop(now+0.4);
+      } else if (type === 'win') {
+         osc.type = 'sine'; osc.frequency.setValueAtTime(440, now); osc.frequency.setValueAtTime(880, now+0.2);
+         gain.gain.setValueAtTime(0.1, now); gain.gain.linearRampToValueAtTime(0, now+1);
+         osc.start(now); osc.stop(now+1);
       }
-      osc.start(t);
-      osc.stop(t + 0.2);
-    } catch (e) {}
+    } catch(e) {}
   };
 
-  const startGame = () => {
-    gameStateRef.current = 'PLAYING';
-    timeLeftRef.current = 20;
-    scoreRef.current = 0;
-    birdYRef.current = 50;
-    velocityRef.current = 0;
-    obstaclesRef.current = [];
-    giftsRef.current = [];
-    spawnTimerRef.current = 0;
-    
-    setGameState('PLAYING');
-    setScore(0);
-    setTimeLeft(20);
-    setBirdY(50);
-    setObstacles([]);
-    setGifts([]);
-    lastTimeRef.current = Date.now();
-    playSound('JUMP');
-    jump();
-    if (requestRef.current) cancelAnimationFrame(requestRef.current);
-    requestRef.current = requestAnimationFrame(gameLoop);
-  };
-
-  const jump = (e) => {
-    if (e) e.stopPropagation();
-    if (gameStateRef.current !== 'PLAYING') return;
-    velocityRef.current = -3.0;
-    playSound('JUMP');
-  };
-
-  const gameLoop = () => {
-    if (gameStateRef.current !== 'PLAYING') return;
-    const now = Date.now();
-    const delta = Math.min(now - lastTimeRef.current, 50);
-    lastTimeRef.current = now;
-
-    timeLeftRef.current -= delta / 1000;
-    if (timeLeftRef.current <= 0) {
-      endGame(true);
-      return;
-    }
-
-    velocityRef.current += 0.25;
-    birdYRef.current += velocityRef.current;
-
-    if (birdYRef.current > 92 || birdYRef.current < 0) {
-      endGame(false);
-      return;
-    }
-
-    obstaclesRef.current.forEach(obs => obs.x -= 0.8);
-    obstaclesRef.current = obstaclesRef.current.filter(obs => obs.x > -20);
-    giftsRef.current.forEach(g => g.x -= 0.8);
-    giftsRef.current = giftsRef.current.filter(g => g.x > -20);
-
-    spawnTimerRef.current += delta;
-    if (spawnTimerRef.current > 1300) {
-      spawnTimerRef.current = 0;
-      const height = 20 + Math.random() * 35; 
-      obstaclesRef.current.push({ id: Date.now(), x: 110, height: height });
-      if (Math.random() > 0.3) {
-        giftsRef.current.push({ id: Date.now() + 1, x: 110 + 7.5 - 5, y: 100 - height - 25 - (Math.random() * 15) });
-      }
-    }
-
-    // Collision (Simplified)
-    const playerRect = { l: 20, r: 28, t: birdYRef.current, b: birdYRef.current + 8 };
-    for (const obs of obstaclesRef.current) {
-        if (playerRect.l < obs.x + 15 && playerRect.r > obs.x && playerRect.b > 100 - obs.height) { endGame(false); return; }
-    }
-    const keptGifts = [];
-    giftsRef.current.forEach(gift => {
-       if (playerRect.l < gift.x + 10 && playerRect.r > gift.x && playerRect.t < gift.y + 10 && playerRect.b > gift.y) {
-           scoreRef.current++;
-           setScore(scoreRef.current);
-           playSound('SCORE');
-       } else { keptGifts.push(gift); }
+  const initGame = () => {
+    // Build Deck
+    let newDeck = [];
+    SHAPES.forEach(s => {
+      for(let i=0; i<TOTAL_STONES_PER_SHAPE; i++) newDeck.push(s);
     });
-    giftsRef.current = keptGifts;
+    // Shuffle
+    for (let i = newDeck.length - 1; i > 0; i--) {
+       const j = Math.floor(Math.random() * (i + 1));
+       [newDeck[i], newDeck[j]] = [newDeck[j], newDeck[i]];
+    }
 
-    setBirdY(birdYRef.current);
-    setObstacles([...obstaclesRef.current]);
-    setGifts([...giftsRef.current]);
-    setTimeLeft(Math.ceil(timeLeftRef.current));
-    requestRef.current = requestAnimationFrame(gameLoop);
+    const h1 = [], h2 = [];
+    SHAPES.forEach(s => {
+        let idx = newDeck.indexOf(s);
+        if(idx !== -1) h1.push(newDeck.splice(idx, 1)[0]);
+    });
+    SHAPES.forEach(s => {
+        let idx = newDeck.indexOf(s);
+        if(idx !== -1) h2.push(newDeck.splice(idx, 1)[0]);
+    });
+    while(h1.length > 4) newDeck.push(h1.pop());
+    while(h2.length > 4) newDeck.push(h2.pop());
+    
+    // Shuffle hands
+    h1.sort(() => Math.random() - 0.5);
+    h2.sort(() => Math.random() - 0.5);
+    newDeck.sort(() => Math.random() - 0.5);
+
+    setP1Hand(h1);
+    setP2Hand(h2);
+    setCenterTiles(newDeck.length > 0 ? [newDeck.pop()] : []);
+    setDeck(newDeck);
+    setCurrentPlayer(1);
+    setTurnPhase('discard');
+    setGameActive(true);
+    setSabotageUsed({ p1: false, p2: false });
+    setTimeRemaining(TIME_LIMIT);
+    setStatusMsg("Speler 1: Gooi een kaart weg");
+    setWinningPlayer(null);
+
+    if(timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+       setTimeRemaining(prev => {
+         if(prev <= 1) {
+            endGame(null); 
+            return 0;
+         }
+         return prev - 1;
+       });
+    }, 1000);
   };
 
-  const endGame = (success) => {
-    gameStateRef.current = 'GAMEOVER';
-    setGameState('GAMEOVER');
-    if (requestRef.current) cancelAnimationFrame(requestRef.current);
-    setTimeout(() => {
-      onGameOver({ score: scoreRef.current, message: success ? `Gewonnen! ${scoreRef.current} cadeaus!` : `Gecrasht! ${scoreRef.current} cadeaus.` });
-    }, 1500);
+  const checkWin = (hand) => {
+    const counts = {};
+    for(let val of hand) {
+        counts[val] = (counts[val] || 0) + 1;
+        if(counts[val] >= 3) return true;
+    }
+    return false;
   };
+
+  const handleHandClick = (player, index) => {
+    if(!gameActive || player !== currentPlayer || turnPhase !== 'discard') return;
+    
+    const hand = player === 1 ? [...p1Hand] : [...p2Hand];
+    const card = hand.splice(index, 1)[0];
+    
+    // Update Hand
+    if(player === 1) setP1Hand(hand); else setP2Hand(hand);
+
+    // Add to deck bottom -> Actually logic says unshift to deck then pop to center? 
+    // Simplified: Discarded card goes to bottom of draw pile, then we reveal a NEW card to center
+    // But Vormen Verzamelaars logic: discard adds to pot? No, logic was: discard puts card back in deck, then reveal new to pot.
+    
+    const newDeck = [card, ...deck];
+    const newCenter = [...centerTiles];
+    if(newDeck.length > 0) {
+        newCenter.push(newDeck.pop());
+    }
+    
+    setDeck(newDeck);
+    setCenterTiles(newCenter);
+    setTurnPhase('pick');
+    setStatusMsg(`Speler ${currentPlayer}: Kies een kaart uit de pot`);
+    playSound('click');
+  };
+
+  const handleCenterClick = (index) => {
+     if(!gameActive || turnPhase !== 'pick') return;
+     
+     const newCenter = [...centerTiles];
+     const card = newCenter.splice(index, 1)[0];
+     setCenterTiles(newCenter);
+
+     const hand = currentPlayer === 1 ? [...p1Hand] : [...p2Hand];
+     hand.push(card);
+     
+     if(currentPlayer === 1) setP1Hand(hand); else setP2Hand(hand);
+     playSound('pickup');
+
+     if(checkWin(hand)) {
+         endGame(currentPlayer);
+         return;
+     }
+
+     const nextPlayer = currentPlayer === 1 ? 2 : 1;
+     setCurrentPlayer(nextPlayer);
+     setTurnPhase('discard');
+     setStatusMsg(`Speler ${nextPlayer}: Gooi een kaart weg`);
+  };
+
+  const handleSabotage = (player) => {
+     if(!gameActive || player !== currentPlayer || turnPhase !== 'discard') return;
+     if((player === 1 && sabotageUsed.p1) || (player === 2 && sabotageUsed.p2)) return;
+
+     setSabotageUsed(prev => ({ ...prev, [player === 1 ? 'p1' : 'p2']: true }));
+     
+     // Reset pot
+     const newCenter = [];
+     const newDeck = [...deck];
+     if(newDeck.length > 0) newCenter.push(newDeck.pop());
+     
+     setCenterTiles(newCenter);
+     setDeck(newDeck);
+     playSound('sabotage');
+     setStatusMsg(`SABOTAGE! Pot gereset.`);
+  };
+
+  const endGame = (winner) => {
+     setGameActive(false);
+     clearInterval(timerRef.current);
+     setWinningPlayer(winner);
+     if(winner) playSound('win');
+     setTimeout(() => {
+         onGameOver({ 
+             score: winner ? 100 : 0, 
+             message: winner ? `Speler ${winner} wint!` : "Tijd is op! Gelijkspel." 
+         });
+     }, 2000);
+  };
+
+  // Render Helpers
+  const renderShape = (val) => {
+     const shapes = [
+         <div className="w-8 h-8 bg-red-500 rounded-full shadow-inner"></div>, // 0 Circle
+         <div className="w-8 h-8 bg-blue-500 rounded-md shadow-inner"></div>,   // 1 Square
+         <div className="w-0 h-0 border-l-[16px] border-l-transparent border-r-[16px] border-r-transparent border-b-[32px] border-b-green-500"></div>, // 2 Triangle
+         <div className="text-3xl text-yellow-400">★</div>, // 3 Star
+         <div className="w-8 h-8 bg-purple-600 rotate-45"></div>, // 4 Diamond
+         <div className="text-3xl text-orange-500 font-bold">+</div> // 5 Cross
+     ];
+     return shapes[val];
+  };
+
+  const renderCard = (val, onClick, disabled, isNew) => (
+      <button 
+        onClick={onClick} 
+        disabled={disabled}
+        className={`
+            w-16 h-24 bg-slate-200 rounded-lg shadow-md flex items-center justify-center border-2 border-slate-300
+            transition-all duration-200
+            ${disabled ? 'opacity-50 cursor-not-allowed scale-95' : 'hover:-translate-y-2 hover:shadow-xl active:scale-95 cursor-pointer'}
+            ${isNew ? 'animate-pulse' : ''}
+        `}
+      >
+          {renderShape(val)}
+      </button>
+  );
 
   return (
-    <div className="h-full w-full bg-slate-900 flex flex-col relative overflow-hidden font-sans select-none touch-none">
-      <div className="absolute top-0 left-0 w-full p-4 flex justify-between items-center z-50 pointer-events-none">
-        <button onClick={onBack} className="pointer-events-auto p-2 bg-slate-800/80 rounded-full text-white hover:bg-slate-700"><X size={20}/></button>
-        <div className="flex gap-4 text-xl font-black drop-shadow-md"><div className="text-yellow-400">🎁 {score}</div><div className={timeLeft < 5 ? "text-red-500 animate-pulse" : "text-white"}>⏱️ {Math.ceil(timeLeft)}</div></div>
-      </div>
-      <div className="absolute inset-0 z-10" onPointerDown={gameState === 'START' ? startGame : (e) => jump(e)}>
-        {gameState === 'START' && (
-           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm z-50">
-             <div className="text-6xl mb-4 animate-bounce">🐴</div>
-             <div className="bg-game-accent text-white px-6 py-3 rounded-full font-bold animate-pulse cursor-pointer">TIK OM TE STARTEN</div>
+    <div className="h-full w-full bg-slate-800 text-white flex flex-col relative select-none touch-none overflow-hidden">
+        {/* Header */}
+        <div className="p-2 flex justify-between items-center bg-slate-900/50">
+           <button onClick={onBack} className="p-2 bg-slate-700 rounded-full"><X size={20}/></button>
+           <div className={`font-mono text-xl font-bold ${timeRemaining < 10 ? 'text-red-500 animate-pulse' : 'text-white'}`}>
+              00:{timeRemaining < 10 ? `0${timeRemaining}` : timeRemaining}
            </div>
+        </div>
+
+        {/* Game Area */}
+        {!gameActive && !winningPlayer ? (
+            <div className="flex-1 flex flex-col items-center justify-center gap-4">
+                <Swords size={64} className="text-yellow-400 mb-4"/>
+                <h1 className="text-3xl font-bold text-center">Vormen Duel</h1>
+                <p className="text-slate-400 text-center max-w-xs">Verzamel 3 dezelfde vormen. <br/>Gooi 1 weg, pak 1 uit de pot.</p>
+                <button onClick={initGame} className="bg-green-600 px-8 py-4 rounded-full font-bold text-xl shadow-lg hover:bg-green-500 transition-colors animate-bounce mt-8">
+                    Start Spel
+                </button>
+            </div>
+        ) : (
+            <div className="flex-1 flex flex-col justify-between p-4 relative">
+                
+                {/* Player 2 Area (Top) */}
+                <div className={`bg-slate-700/50 p-2 rounded-xl border-2 transition-colors ${currentPlayer === 2 ? 'border-yellow-400 bg-slate-700' : 'border-transparent'}`}>
+                    <div className="flex justify-between items-center mb-2">
+                        <span className="font-bold text-red-400">Speler 2</span>
+                        <button 
+                            onClick={() => handleSabotage(2)} 
+                            disabled={currentPlayer !== 2 || sabotageUsed.p2 || turnPhase !== 'discard'}
+                            className="bg-orange-600 text-xs px-2 py-1 rounded disabled:opacity-20 flex gap-1 items-center"
+                        >
+                            <ShieldAlert size={12}/> Saboteer
+                        </button>
+                    </div>
+                    <div className="flex justify-center gap-2 min-h-[100px]">
+                        {p2Hand.map((val, i) => renderCard(val, () => handleHandClick(2, i), currentPlayer !== 2 || turnPhase !== 'discard'))}
+                    </div>
+                </div>
+
+                {/* Center Pot */}
+                <div className="flex-1 flex flex-col items-center justify-center">
+                    <div className="text-sm text-slate-400 uppercase tracking-widest mb-2 font-bold">{statusMsg}</div>
+                    <div className="flex flex-wrap justify-center gap-2 p-4 bg-slate-900/30 rounded-2xl w-full min-h-[120px]">
+                         {centerTiles.length === 0 && <div className="text-slate-600 text-xs self-center">Lege Pot</div>}
+                         {centerTiles.map((val, i) => renderCard(val, () => handleCenterClick(i), turnPhase !== 'pick', i === centerTiles.length - 1))}
+                    </div>
+                </div>
+
+                {/* Player 1 Area (Bottom) */}
+                <div className={`bg-slate-700/50 p-2 rounded-xl border-2 transition-colors ${currentPlayer === 1 ? 'border-yellow-400 bg-slate-700' : 'border-transparent'}`}>
+                    <div className="flex justify-between items-center mb-2">
+                        <span className="font-bold text-blue-400">Speler 1</span>
+                        <button 
+                            onClick={() => handleSabotage(1)} 
+                            disabled={currentPlayer !== 1 || sabotageUsed.p1 || turnPhase !== 'discard'}
+                            className="bg-orange-600 text-xs px-2 py-1 rounded disabled:opacity-20 flex gap-1 items-center"
+                        >
+                            <ShieldAlert size={12}/> Saboteer
+                        </button>
+                    </div>
+                    <div className="flex justify-center gap-2 min-h-[100px]">
+                        {p1Hand.map((val, i) => renderCard(val, () => handleHandClick(1, i), currentPlayer !== 1 || turnPhase !== 'discard'))}
+                    </div>
+                </div>
+
+                {/* Win Overlay */}
+                {winningPlayer && (
+                    <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-50 animate-fade-in">
+                        <Trophy size={80} className="text-yellow-400 mb-4 animate-bounce" />
+                        <h2 className="text-4xl font-black text-white mb-2">Speler {winningPlayer} Wint!</h2>
+                        <div className="flex gap-2">
+                             {(winningPlayer === 1 ? p1Hand : p2Hand).map((v, i) => <div key={i} className="scale-75">{renderShape(v)}</div>)}
+                        </div>
+                    </div>
+                )}
+            </div>
         )}
-        <div className="absolute text-4xl transition-transform will-change-transform" style={{ left: '20%', top: `${birdY}%`, transform: `translateY(-50%) rotate(${velocityRef.current * 3}deg) scaleX(-1)` }}>🐴</div>
-        {obstacles.map(obs => ( <div key={obs.id} className="absolute bottom-0 bg-red-900 border-x-4 border-t-4 border-red-950 rounded-t-lg shadow-lg" style={{ left: `${obs.x}%`, height: `${obs.height}%`, width: `15%`, }}></div> ))}
-        {gifts.map(gift => ( <div key={gift.id} className="absolute text-3xl animate-pulse" style={{ left: `${gift.x}%`, top: `${gift.y}%` }}>🎁</div> ))}
-        <div className="absolute bottom-0 w-full h-[8%] bg-slate-800 border-t-4 border-slate-700 z-20 flex items-center justify-center"></div>
-      </div>
     </div>
   );
 };
