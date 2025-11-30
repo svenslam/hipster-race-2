@@ -1,358 +1,312 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { X } from 'lucide-react';
+import { X, Swords, Trophy, ShieldAlert } from 'lucide-react';
 
 export const SinterklaasGame = ({ onGameOver, onBack }) => {
-  const [score, setScore] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(20);
-  const [gameState, setGameState] = useState('START');
-  
-  const [birdY, setBirdY] = useState(50);
-  const [obstacles, setObstacles] = useState([]);
-  const [gifts, setGifts] = useState([]);
+  const [deck, setDeck] = useState([]);
+  const [p1Hand, setP1Hand] = useState([]);
+  const [p2Hand, setP2Hand] = useState([]);
+  const [centerTiles, setCenterTiles] = useState([]);
+  const [currentPlayer, setCurrentPlayer] = useState(1);
+  const [turnPhase, setTurnPhase] = useState('discard'); // 'discard' or 'pick'
+  const [gameActive, setGameActive] = useState(false);
+  const [timeRemaining, setTimeRemaining] = useState(60);
+  const [statusMsg, setStatusMsg] = useState('Druk op Start');
+  const [sabotageUsed, setSabotageUsed] = useState({ p1: false, p2: false });
+  const [winningPlayer, setWinningPlayer] = useState(null);
 
-  const gameStateRef = useRef('START');
-  const timeLeftRef = useRef(20);
-  const birdYRef = useRef(50);
-  const velocityRef = useRef(0);
-  const obstaclesRef = useRef([]);
-  const giftsRef = useRef([]);
-  const scoreRef = useRef(0);
-  
-  const requestRef = useRef(0);
-  const lastTimeRef = useRef(0);
-  const spawnTimerRef = useRef(0);
-  
   const audioCtxRef = useRef(null);
-  const nextNoteTimeRef = useRef(0);
-  const beatCountRef = useRef(0);
+  const timerRef = useRef(null);
 
-  const GRAVITY = 0.25;
-  const JUMP_STRENGTH = -3.0;
-  const GAME_SPEED = 0.8;
-  const BIRD_SIZE = 8; 
-  const OBSTACLE_WIDTH = 15; 
-  const GIFT_SIZE = 10; 
+  // Constants
+  const SHAPES = [0, 1, 2, 3]; // 0:Circle, 1:Square, 2:Triangle, 3:Star
+  const TOTAL_STONES_PER_SHAPE = 5;
+  const TIME_LIMIT = 60;
+  const HAND_SIZE = 4;
 
   useEffect(() => {
     try {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       if (AudioContext) audioCtxRef.current = new AudioContext();
-    } catch (e) {
-      console.error("AudioContext failed", e);
-    }
+    } catch (e) {}
     return () => {
-      if (requestRef.current) cancelAnimationFrame(requestRef.current);
-      if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
-        try { audioCtxRef.current.close(); } catch(e) {}
-      }
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (audioCtxRef.current) audioCtxRef.current.close();
     };
   }, []);
 
   const playSound = (type) => {
     if (!audioCtxRef.current) return;
     try {
-      const ctx = audioCtxRef.current;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
+      if (audioCtxRef.current.state === 'suspended') audioCtxRef.current.resume();
+      const osc = audioCtxRef.current.createOscillator();
+      const gain = audioCtxRef.current.createGain();
       osc.connect(gain);
-      gain.connect(ctx.destination);
+      gain.connect(audioCtxRef.current.destination);
+      const now = audioCtxRef.current.currentTime;
 
-      const t = ctx.currentTime;
-
-      if (type === 'JUMP') {
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(150, t);
-        osc.frequency.linearRampToValueAtTime(300, t + 0.1);
-        gain.gain.setValueAtTime(0.1, t);
-        gain.gain.linearRampToValueAtTime(0, t + 0.1);
-        osc.start(t);
-        osc.stop(t + 0.1);
-      } else if (type === 'SCORE') {
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(523.25, t); 
-        osc.frequency.setValueAtTime(659.25, t + 0.1); 
-        gain.gain.setValueAtTime(0.1, t);
-        gain.gain.linearRampToValueAtTime(0, t + 0.2);
-        osc.start(t);
-        osc.stop(t + 0.2);
-      } else {
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(100, t);
-        osc.frequency.linearRampToValueAtTime(50, t + 0.3);
-        gain.gain.setValueAtTime(0.2, t);
-        gain.gain.linearRampToValueAtTime(0, t + 0.3);
-        osc.start(t);
-        osc.stop(t + 0.3);
+      if (type === 'click') {
+         osc.type = 'square'; osc.frequency.setValueAtTime(200, now);
+         gain.gain.setValueAtTime(0.05, now); gain.gain.linearRampToValueAtTime(0, now + 0.1);
+         osc.start(now); osc.stop(now + 0.1);
+      } else if (type === 'pickup') {
+         osc.type = 'triangle'; osc.frequency.setValueAtTime(500, now); osc.frequency.linearRampToValueAtTime(700, now+0.1);
+         gain.gain.setValueAtTime(0.1, now); gain.gain.linearRampToValueAtTime(0, now+0.15);
+         osc.start(now); osc.stop(now+0.15);
+      } else if (type === 'sabotage') {
+         osc.type = 'sawtooth'; osc.frequency.setValueAtTime(300, now); osc.frequency.linearRampToValueAtTime(100, now+0.4);
+         gain.gain.setValueAtTime(0.2, now); gain.gain.linearRampToValueAtTime(0, now+0.4);
+         osc.start(now); osc.stop(now+0.4);
+      } else if (type === 'win') {
+         osc.type = 'sine'; osc.frequency.setValueAtTime(440, now); osc.frequency.setValueAtTime(880, now+0.2);
+         gain.gain.setValueAtTime(0.1, now); gain.gain.linearRampToValueAtTime(0, now+1);
+         osc.start(now); osc.stop(now+1);
+      } else if (type === 'tick') {
+         osc.type = 'square'; osc.frequency.setValueAtTime(100, now);
+         gain.gain.setValueAtTime(0.15, now); gain.gain.exponentialRampToValueAtTime(0.001, now+0.05);
+         osc.start(now); osc.stop(now+0.05);
       }
-    } catch (e) {
-      console.warn(e);
-    }
+    } catch(e) {}
   };
 
-  const playGallopBeat = () => {
-    if (!audioCtxRef.current || gameStateRef.current !== 'PLAYING') return;
-    try {
-      const ctx = audioCtxRef.current;
-      const t = ctx.currentTime;
-      if (t < nextNoteTimeRef.current) return;
-
-      const tempo = 0.15; 
-      
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      
-      osc.type = 'triangle';
-      const freq = beatCountRef.current % 3 === 0 ? 80 : 120;
-      osc.frequency.value = freq;
-
-      gain.gain.setValueAtTime(0.05, t);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
-
-      osc.start(t);
-      osc.stop(t + 0.05);
-
-      if (beatCountRef.current % 3 === 2) {
-         nextNoteTimeRef.current += tempo * 1.5; 
-      } else {
-         nextNoteTimeRef.current += tempo;
-      }
-      
-      beatCountRef.current++;
-    } catch (e) {}
-  };
-
-  const startGame = () => {
-    gameStateRef.current = 'PLAYING';
-    timeLeftRef.current = 20;
-    scoreRef.current = 0;
-    birdYRef.current = 50;
-    velocityRef.current = 0;
-    obstaclesRef.current = [];
-    giftsRef.current = [];
-    spawnTimerRef.current = 0;
-    beatCountRef.current = 0;
-    if (audioCtxRef.current) nextNoteTimeRef.current = audioCtxRef.current.currentTime;
-
-    setGameState('PLAYING');
-    setScore(0);
-    setTimeLeft(20);
-    setBirdY(50);
-    setObstacles([]);
-    setGifts([]);
-
-    lastTimeRef.current = Date.now();
-    playSound('JUMP');
-    jump();
-    
-    if (requestRef.current) cancelAnimationFrame(requestRef.current);
-    requestRef.current = requestAnimationFrame(gameLoop);
-  };
-
-  const jump = (e) => {
-    if (e) e.stopPropagation();
-    if (gameStateRef.current !== 'PLAYING') return;
-    velocityRef.current = JUMP_STRENGTH;
-    playSound('JUMP');
-  };
-
-  const gameLoop = () => {
-    if (gameStateRef.current !== 'PLAYING') return;
-
-    const now = Date.now();
-    const delta = Math.min(now - lastTimeRef.current, 50);
-    lastTimeRef.current = now;
-
-    timeLeftRef.current -= delta / 1000;
-    if (timeLeftRef.current <= 0) {
-      endGame(true);
-      return;
-    }
-
-    velocityRef.current += GRAVITY;
-    birdYRef.current += velocityRef.current;
-
-    if (birdYRef.current > 92 || birdYRef.current < 0) {
-      endGame(false);
-      return;
-    }
-
-    obstaclesRef.current.forEach(obs => obs.x -= GAME_SPEED);
-    obstaclesRef.current = obstaclesRef.current.filter(obs => obs.x > -20);
-
-    giftsRef.current.forEach(g => g.x -= GAME_SPEED);
-    giftsRef.current = giftsRef.current.filter(g => g.x > -20);
-
-    spawnTimerRef.current += delta;
-    if (spawnTimerRef.current > 1300) {
-      spawnTimerRef.current = 0;
-      const height = 20 + Math.random() * 35; 
-      obstaclesRef.current.push({
-        id: Date.now(),
-        x: 110,
-        height: height
-      });
-      
-      if (Math.random() > 0.3) {
-        giftsRef.current.push({
-          id: Date.now() + 1,
-          x: 110 + (OBSTACLE_WIDTH/2) - (GIFT_SIZE/2),
-          y: 100 - height - 25 - (Math.random() * 15)
-        });
-      }
-    }
-
-    const playerRect = {
-      l: 20,
-      r: 20 + BIRD_SIZE,
-      t: birdYRef.current,
-      b: birdYRef.current + BIRD_SIZE
-    };
-
-    for (const obs of obstaclesRef.current) {
-      const obsRect = {
-        l: obs.x,
-        r: obs.x + OBSTACLE_WIDTH,
-        t: 100 - obs.height,
-        b: 100
-      };
-      const margin = 2;
-      if (
-        playerRect.l + margin < obsRect.r && 
-        playerRect.r - margin > obsRect.l && 
-        playerRect.b - margin > obsRect.t
-      ) {
-        endGame(false);
-        return;
-      }
-    }
-
-    const keptGifts = [];
-    giftsRef.current.forEach(gift => {
-      const giftRect = {
-        l: gift.x,
-        r: gift.x + GIFT_SIZE,
-        t: gift.y,
-        b: gift.y + GIFT_SIZE
-      };
-      if (
-        playerRect.l < giftRect.r &&
-        playerRect.r > giftRect.l &&
-        playerRect.t < giftRect.b &&
-        playerRect.b > giftRect.t
-      ) {
-        scoreRef.current += 1;
-        setScore(scoreRef.current); 
-        playSound('SCORE');
-      } else {
-        keptGifts.push(gift);
-      }
+  const initGame = () => {
+    let newDeck = [];
+    SHAPES.forEach(s => {
+      for(let i=0; i<TOTAL_STONES_PER_SHAPE; i++) newDeck.push(s);
     });
-    giftsRef.current = keptGifts;
+    // Shuffle
+    for (let i = newDeck.length - 1; i > 0; i--) {
+       const j = Math.floor(Math.random() * (i + 1));
+       [newDeck[i], newDeck[j]] = [newDeck[j], newDeck[i]];
+    }
 
-    setBirdY(birdYRef.current);
-    setObstacles([...obstaclesRef.current]);
-    setGifts([...giftsRef.current]);
-    setTimeLeft(Math.ceil(timeLeftRef.current));
+    const h1 = [];
+    const h2 = [];
+    for(let i=0; i<HAND_SIZE; i++) {
+        if(newDeck.length > 0) h1.push(newDeck.pop());
+        if(newDeck.length > 0) h2.push(newDeck.pop());
+    }
     
-    playGallopBeat();
+    setP1Hand(h1);
+    setP2Hand(h2);
+    setCenterTiles(newDeck.length > 0 ? [newDeck.pop()] : []);
+    setDeck(newDeck);
+    setCurrentPlayer(1);
+    setTurnPhase('discard');
+    setGameActive(true);
+    setSabotageUsed({ p1: false, p2: false });
+    setTimeRemaining(TIME_LIMIT);
+    setStatusMsg("Speler 1: Gooi een kaart weg");
+    setWinningPlayer(null);
 
-    requestRef.current = requestAnimationFrame(gameLoop);
+    if(timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+       setTimeRemaining(prev => {
+         playSound('tick');
+         if(prev <= 1) {
+            endGame(null); 
+            return 0;
+         }
+         return prev - 1;
+       });
+    }, 1000);
   };
 
-  const endGame = (success) => {
-    gameStateRef.current = 'GAMEOVER';
-    setGameState('GAMEOVER');
-    playSound(success ? 'SCORE' : 'CRASH');
-    if (requestRef.current) cancelAnimationFrame(requestRef.current);
-    
-    setTimeout(() => {
-      onGameOver({ 
-        score: scoreRef.current, 
-        message: success ? `Gewonnen! ${scoreRef.current} cadeaus!` : `Gecrasht! ${scoreRef.current} cadeaus.` 
-      });
-    }, 1500);
+  const checkWin = (hand) => {
+    const counts = {};
+    for(let val of hand) {
+        counts[val] = (counts[val] || 0) + 1;
+        if(counts[val] >= 3) return true;
+    }
+    return false;
   };
+
+  const handleHandClick = (player, index) => {
+    if(!gameActive || player !== currentPlayer || turnPhase !== 'discard') return;
+    
+    const hand = player === 1 ? [...p1Hand] : [...p2Hand];
+    const card = hand.splice(index, 1)[0];
+    
+    if(player === 1) setP1Hand(hand); else setP2Hand(hand);
+
+    const newDeck = [card, ...deck];
+    const newCenter = [...centerTiles];
+    if(newDeck.length > 0) {
+        newCenter.push(newDeck.pop());
+        playSound('appear');
+    }
+    
+    setDeck(newDeck);
+    setCenterTiles(newCenter);
+    setTurnPhase('pick');
+    
+    const opponent = player === 1 ? 2 : 1;
+    const canSabotage = opponent === 1 ? !sabotageUsed.p1 : !sabotageUsed.p2;
+    
+    if (canSabotage) {
+        setStatusMsg(`Speler ${opponent} kan SABOTEREN of Speler ${currentPlayer} kiest`);
+    } else {
+        setStatusMsg(`Speler ${currentPlayer}: Kies een kaart`);
+    }
+    playSound('click');
+  };
+
+  const handleCenterClick = (index) => {
+     if(!gameActive || turnPhase !== 'pick') return;
+     
+     const newCenter = [...centerTiles];
+     const card = newCenter.splice(index, 1)[0];
+     setCenterTiles(newCenter);
+
+     const hand = currentPlayer === 1 ? [...p1Hand] : [...p2Hand];
+     hand.push(card);
+     
+     if(currentPlayer === 1) setP1Hand(hand); else setP2Hand(hand);
+     playSound('pickup');
+
+     if(checkWin(hand)) {
+         endGame(currentPlayer);
+         return;
+     }
+
+     const nextPlayer = currentPlayer === 1 ? 2 : 1;
+     setCurrentPlayer(nextPlayer);
+     setTurnPhase('discard');
+     setStatusMsg(`Speler ${nextPlayer}: Gooi een kaart weg`);
+  };
+
+  const handleSabotage = (player) => {
+     const opponent = player; // The one clicking
+     const activePlayer = opponent === 1 ? 2 : 1;
+     
+     if(!gameActive || activePlayer !== currentPlayer || turnPhase !== 'pick') return;
+     if((opponent === 1 && sabotageUsed.p1) || (opponent === 2 && sabotageUsed.p2)) return;
+
+     setSabotageUsed(prev => ({ ...prev, [opponent === 1 ? 'p1' : 'p2']: true }));
+     
+     let newDeck = [...deck, ...centerTiles];
+     for (let i = newDeck.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [newDeck[i], newDeck[j]] = [newDeck[j], newDeck[i]];
+     }
+     
+     const newCenter = [];
+     for(let i=0; i<2; i++) {
+         if(newDeck.length > 0) newCenter.push(newDeck.pop());
+     }
+     
+     setCenterTiles(newCenter);
+     setDeck(newDeck);
+     playSound('sabotage');
+     setStatusMsg(`SABOTAGE! Nieuwe pot voor Speler ${activePlayer}.`);
+  };
+
+  const endGame = (winner) => {
+     setGameActive(false);
+     clearInterval(timerRef.current);
+     setWinningPlayer(winner);
+     if(winner) playSound('win');
+     setTimeout(() => {
+         onGameOver({ 
+             score: winner ? 100 : 0, 
+             message: winner ? `Speler ${winner} wint!` : "Tijd is op! Gelijkspel." 
+         });
+     }, 3000);
+  };
+
+  const renderShape = (val) => {
+     const shapes = [
+         <div className="w-8 h-8 bg-red-500 rounded-full shadow-inner"></div>, 
+         <div className="w-8 h-8 bg-blue-500 rounded-md shadow-inner"></div>,   
+         <div className="w-0 h-0 border-l-[16px] border-l-transparent border-r-[16px] border-r-transparent border-b-[32px] border-b-green-500"></div>, 
+         <div className="text-3xl text-yellow-400">★</div>, 
+     ];
+     return shapes[val];
+  };
+
+  const renderCard = (val, onClick, disabled, isNew) => (
+      <button 
+        onClick={onClick} 
+        disabled={disabled}
+        className={`
+            w-16 h-24 bg-slate-200 rounded-lg shadow-md flex items-center justify-center border-2 border-slate-300
+            transition-all duration-200
+            ${disabled ? 'opacity-50 cursor-not-allowed scale-95' : 'hover:-translate-y-2 hover:shadow-xl active:scale-95 cursor-pointer'}
+            ${isNew ? 'animate-pulse' : ''}
+        `}
+      >
+          {renderShape(val)}
+      </button>
+  );
 
   return (
-    <div className="h-full w-full bg-slate-900 flex flex-col relative overflow-hidden font-sans select-none touch-none">
-      <div className="absolute inset-0 bg-gradient-to-b from-indigo-900 via-purple-900 to-slate-900 z-0">
-        <div className="absolute inset-0 opacity-20" 
-             style={{ 
-               backgroundImage: 'radial-gradient(white 1px, transparent 1px)', 
-               backgroundSize: '50px 50px' 
-             }}>
-        </div>
-        <div className="absolute top-10 right-10 w-16 h-16 rounded-full bg-yellow-100 opacity-80 blur-sm shadow-[0_0_40px_rgba(253,224,71,0.5)]"></div>
-      </div>
-
-      <div className="absolute top-0 left-0 w-full p-4 flex justify-between items-center z-50 pointer-events-none">
-        <button onClick={onBack} className="pointer-events-auto p-2 bg-slate-800/80 rounded-full text-white hover:bg-slate-700"><X size={20}/></button>
-        <div className="flex gap-4 text-xl font-black drop-shadow-md">
-          <div className="text-yellow-400">🎁 {score}</div>
-          <div className={timeLeft < 5 ? "text-red-500 animate-pulse" : "text-white"}>⏱️ {Math.ceil(timeLeft)}</div>
-        </div>
-      </div>
-
-      <div 
-        className="absolute inset-0 z-10"
-        onPointerDown={gameState === 'START' ? startGame : (e) => jump(e)}
-      >
-        {gameState === 'START' && (
-           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm z-50">
-             <div className="text-6xl mb-4 animate-bounce">🐴</div>
-             <h2 className="text-white font-bold text-3xl mb-2">Amerigo Run</h2>
-             <p className="text-slate-300 mb-6 text-center max-w-xs">Tik om te springen. Ontwijk schoorstenen en vang cadeaus!</p>
-             <div className="bg-game-accent text-white px-6 py-3 rounded-full font-bold animate-pulse cursor-pointer">
-                TIK OM TE STARTEN
-             </div>
+    <div className="h-full w-full bg-slate-800 text-white flex flex-col relative select-none touch-none overflow-hidden">
+        <div className="p-2 flex justify-between items-center bg-slate-900/50">
+           <button onClick={onBack} className="p-2 bg-slate-700 rounded-full"><X size={20}/></button>
+           <div className={`font-mono text-xl font-bold ${timeRemaining < 10 ? 'text-red-500 animate-pulse' : 'text-white'}`}>
+              00:{timeRemaining < 10 ? `0${timeRemaining}` : timeRemaining}
            </div>
+        </div>
+
+        {!gameActive && !winningPlayer ? (
+            <div className="flex-1 flex flex-col items-center justify-center gap-4">
+                <Swords size={64} className="text-yellow-400 mb-4"/>
+                <h1 className="text-3xl font-bold text-center">Vormen Duel</h1>
+                <p className="text-slate-400 text-center max-w-xs">Verzamel 3 dezelfde vormen. <br/>Gooi 1 weg, pak 1 uit de pot.</p>
+                <button onClick={initGame} className="bg-green-600 px-8 py-4 rounded-full font-bold text-xl shadow-lg hover:bg-green-500 transition-colors animate-bounce mt-8">
+                    Start Spel
+                </button>
+            </div>
+        ) : (
+            <div className="flex-1 flex flex-col justify-between p-4 relative">
+                <div className={`bg-slate-700/50 p-2 rounded-xl border-2 transition-colors rotate-180 ${currentPlayer === 2 ? 'border-yellow-400 bg-slate-700' : 'border-transparent'}`}>
+                    <div className="flex justify-between items-center mb-2">
+                        <span className="font-bold text-red-400">Speler 2</span>
+                        <button 
+                            onClick={() => handleSabotage(2)} 
+                            disabled={!gameActive || currentPlayer === 2 || turnPhase !== 'pick' || sabotageUsed.p2}
+                            className="bg-orange-600 text-xs px-2 py-1 rounded disabled:opacity-20 flex gap-1 items-center"
+                        >
+                            <ShieldAlert size={12}/> Saboteer
+                        </button>
+                    </div>
+                    <div className="flex justify-center gap-2 min-h-[100px]">
+                        {p2Hand.map((val, i) => renderCard(val, () => handleHandClick(2, i), currentPlayer !== 2 || turnPhase !== 'discard'))}
+                    </div>
+                </div>
+
+                <div className="flex-1 flex flex-col items-center justify-center">
+                    <div className="text-sm text-slate-400 uppercase tracking-widest mb-2 font-bold text-center">{statusMsg}</div>
+                    <div className="flex flex-wrap justify-center gap-2 p-4 bg-slate-900/30 rounded-2xl w-full min-h-[120px]">
+                         {centerTiles.length === 0 && <div className="text-slate-600 text-xs self-center">Lege Pot</div>}
+                         {centerTiles.map((val, i) => renderCard(val, () => handleCenterClick(i), turnPhase !== 'pick', i === centerTiles.length - 1))}
+                    </div>
+                </div>
+
+                <div className={`bg-slate-700/50 p-2 rounded-xl border-2 transition-colors ${currentPlayer === 1 ? 'border-yellow-400 bg-slate-700' : 'border-transparent'}`}>
+                    <div className="flex justify-between items-center mb-2">
+                        <span className="font-bold text-blue-400">Speler 1</span>
+                        <button 
+                            onClick={() => handleSabotage(1)} 
+                            disabled={!gameActive || currentPlayer === 1 || turnPhase !== 'pick' || sabotageUsed.p1}
+                            className="bg-orange-600 text-xs px-2 py-1 rounded disabled:opacity-20 flex gap-1 items-center"
+                        >
+                            <ShieldAlert size={12}/> Saboteer
+                        </button>
+                    </div>
+                    <div className="flex justify-center gap-2 min-h-[100px]">
+                        {p1Hand.map((val, i) => renderCard(val, () => handleHandClick(1, i), currentPlayer !== 1 || turnPhase !== 'discard'))}
+                    </div>
+                </div>
+
+                {winningPlayer && (
+                    <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-50 animate-fade-in">
+                        <Trophy size={80} className="text-yellow-400 mb-4 animate-bounce" />
+                        <h2 className="text-4xl font-black text-white mb-2">Speler {winningPlayer} Wint!</h2>
+                    </div>
+                )}
+            </div>
         )}
-
-        <div 
-          className="absolute text-4xl transition-transform will-change-transform"
-          style={{ 
-            left: '20%', 
-            top: `${birdY}%`,
-            transform: `translateY(-50%) rotate(${velocityRef.current * 3}deg) scaleX(-1)` 
-          }}
-        >
-          🐴
-        </div>
-
-        {obstacles.map(obs => (
-          <div 
-            key={obs.id}
-            className="absolute bottom-0 bg-red-900 border-x-4 border-t-4 border-red-950 rounded-t-lg shadow-lg"
-            style={{ 
-              left: `${obs.x}%`, 
-              height: `${obs.height}%`, 
-              width: `${OBSTACLE_WIDTH}%`,
-            }}
-          >
-            <div className="w-[120%] h-4 bg-red-950 -ml-[10%] rounded-sm absolute top-0 shadow-md"></div>
-          </div>
-        ))}
-
-        {gifts.map(gift => (
-          <div 
-            key={gift.id}
-            className="absolute text-3xl animate-pulse"
-            style={{ 
-              left: `${gift.x}%`, 
-              top: `${gift.y}%`
-            }}
-          >
-            🎁
-          </div>
-        ))}
-
-        <div className="absolute bottom-0 w-full h-[8%] bg-slate-800 border-t-4 border-slate-700 z-20 flex items-center justify-center">
-             <div className="text-xs text-slate-600">daken van nederland</div>
-        </div>
-      </div>
     </div>
   );
 };

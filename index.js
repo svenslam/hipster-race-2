@@ -336,7 +336,7 @@ const MusicGame = ({ onGameOver, onBack }) => {
   );
 };
 
-// --- VORMEN VERZAMELAARS (Shape Duel) ---
+// --- VORMEN VERZAMELAARS (Trivorm / Shape Duel) ---
 const SinterklaasGame = ({ onGameOver, onBack }) => {
   const [deck, setDeck] = useState([]);
   const [p1Hand, setP1Hand] = useState([]);
@@ -354,9 +354,10 @@ const SinterklaasGame = ({ onGameOver, onBack }) => {
   const timerRef = useRef(null);
 
   // Constants
-  const SHAPES = [0, 1, 2, 3, 4, 5];
+  const SHAPES = [0, 1, 2, 3]; // 0:Circle, 1:Square, 2:Triangle, 3:Star
   const TOTAL_STONES_PER_SHAPE = 5;
   const TIME_LIMIT = 60;
+  const HAND_SIZE = 4;
 
   useEffect(() => {
     try {
@@ -395,12 +396,15 @@ const SinterklaasGame = ({ onGameOver, onBack }) => {
          osc.type = 'sine'; osc.frequency.setValueAtTime(440, now); osc.frequency.setValueAtTime(880, now+0.2);
          gain.gain.setValueAtTime(0.1, now); gain.gain.linearRampToValueAtTime(0, now+1);
          osc.start(now); osc.stop(now+1);
+      } else if (type === 'tick') {
+         osc.type = 'square'; osc.frequency.setValueAtTime(100, now);
+         gain.gain.setValueAtTime(0.15, now); gain.gain.exponentialRampToValueAtTime(0.001, now+0.05);
+         osc.start(now); osc.stop(now+0.05);
       }
     } catch(e) {}
   };
 
   const initGame = () => {
-    // Build Deck
     let newDeck = [];
     SHAPES.forEach(s => {
       for(let i=0; i<TOTAL_STONES_PER_SHAPE; i++) newDeck.push(s);
@@ -411,23 +415,13 @@ const SinterklaasGame = ({ onGameOver, onBack }) => {
        [newDeck[i], newDeck[j]] = [newDeck[j], newDeck[i]];
     }
 
-    const h1 = [], h2 = [];
-    SHAPES.forEach(s => {
-        let idx = newDeck.indexOf(s);
-        if(idx !== -1) h1.push(newDeck.splice(idx, 1)[0]);
-    });
-    SHAPES.forEach(s => {
-        let idx = newDeck.indexOf(s);
-        if(idx !== -1) h2.push(newDeck.splice(idx, 1)[0]);
-    });
-    while(h1.length > 4) newDeck.push(h1.pop());
-    while(h2.length > 4) newDeck.push(h2.pop());
+    const h1 = [];
+    const h2 = [];
+    for(let i=0; i<HAND_SIZE; i++) {
+        if(newDeck.length > 0) h1.push(newDeck.pop());
+        if(newDeck.length > 0) h2.push(newDeck.pop());
+    }
     
-    // Shuffle hands
-    h1.sort(() => Math.random() - 0.5);
-    h2.sort(() => Math.random() - 0.5);
-    newDeck.sort(() => Math.random() - 0.5);
-
     setP1Hand(h1);
     setP2Hand(h2);
     setCenterTiles(newDeck.length > 0 ? [newDeck.pop()] : []);
@@ -443,6 +437,7 @@ const SinterklaasGame = ({ onGameOver, onBack }) => {
     if(timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
        setTimeRemaining(prev => {
+         playSound('tick');
          if(prev <= 1) {
             endGame(null); 
             return 0;
@@ -467,23 +462,28 @@ const SinterklaasGame = ({ onGameOver, onBack }) => {
     const hand = player === 1 ? [...p1Hand] : [...p2Hand];
     const card = hand.splice(index, 1)[0];
     
-    // Update Hand
     if(player === 1) setP1Hand(hand); else setP2Hand(hand);
 
-    // Add to deck bottom -> Actually logic says unshift to deck then pop to center? 
-    // Simplified: Discarded card goes to bottom of draw pile, then we reveal a NEW card to center
-    // But Vormen Verzamelaars logic: discard adds to pot? No, logic was: discard puts card back in deck, then reveal new to pot.
-    
     const newDeck = [card, ...deck];
     const newCenter = [...centerTiles];
     if(newDeck.length > 0) {
         newCenter.push(newDeck.pop());
+        playSound('appear');
     }
     
     setDeck(newDeck);
     setCenterTiles(newCenter);
     setTurnPhase('pick');
-    setStatusMsg(`Speler ${currentPlayer}: Kies een kaart uit de pot`);
+    
+    // Check if opponent can sabotage
+    const opponent = player === 1 ? 2 : 1;
+    const canSabotage = opponent === 1 ? !sabotageUsed.p1 : !sabotageUsed.p2;
+    
+    if (canSabotage) {
+        setStatusMsg(`Speler ${opponent} kan SABOTEREN of Speler ${currentPlayer} kiest`);
+    } else {
+        setStatusMsg(`Speler ${currentPlayer}: Kies een kaart`);
+    }
     playSound('click');
   };
 
@@ -512,20 +512,33 @@ const SinterklaasGame = ({ onGameOver, onBack }) => {
   };
 
   const handleSabotage = (player) => {
-     if(!gameActive || player !== currentPlayer || turnPhase !== 'discard') return;
-     if((player === 1 && sabotageUsed.p1) || (player === 2 && sabotageUsed.p2)) return;
-
-     setSabotageUsed(prev => ({ ...prev, [player === 1 ? 'p1' : 'p2']: true }));
+     // Player pressed sabotage. This player is the OPPONENT of current player.
+     // Must be opponents turn (technically, current player is set, but it's pick phase)
+     const opponent = player; // The one clicking
+     const activePlayer = opponent === 1 ? 2 : 1;
      
-     // Reset pot
+     if(!gameActive || activePlayer !== currentPlayer || turnPhase !== 'pick') return;
+     if((opponent === 1 && sabotageUsed.p1) || (opponent === 2 && sabotageUsed.p2)) return;
+
+     setSabotageUsed(prev => ({ ...prev, [opponent === 1 ? 'p1' : 'p2']: true }));
+     
+     // Reset pot: put center back to deck, shuffle, draw 2 new
+     let newDeck = [...deck, ...centerTiles];
+     // Shuffle
+     for (let i = newDeck.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [newDeck[i], newDeck[j]] = [newDeck[j], newDeck[i]];
+     }
+     
      const newCenter = [];
-     const newDeck = [...deck];
-     if(newDeck.length > 0) newCenter.push(newDeck.pop());
+     for(let i=0; i<2; i++) {
+         if(newDeck.length > 0) newCenter.push(newDeck.pop());
+     }
      
      setCenterTiles(newCenter);
      setDeck(newDeck);
      playSound('sabotage');
-     setStatusMsg(`SABOTAGE! Pot gereset.`);
+     setStatusMsg(`SABOTAGE! Nieuwe pot voor Speler ${activePlayer}.`);
   };
 
   const endGame = (winner) => {
@@ -538,18 +551,16 @@ const SinterklaasGame = ({ onGameOver, onBack }) => {
              score: winner ? 100 : 0, 
              message: winner ? `Speler ${winner} wint!` : "Tijd is op! Gelijkspel." 
          });
-     }, 2000);
+     }, 3000);
   };
 
-  // Render Helpers
+  // Helpers
   const renderShape = (val) => {
      const shapes = [
          <div className="w-8 h-8 bg-red-500 rounded-full shadow-inner"></div>, // 0 Circle
          <div className="w-8 h-8 bg-blue-500 rounded-md shadow-inner"></div>,   // 1 Square
          <div className="w-0 h-0 border-l-[16px] border-l-transparent border-r-[16px] border-r-transparent border-b-[32px] border-b-green-500"></div>, // 2 Triangle
          <div className="text-3xl text-yellow-400">★</div>, // 3 Star
-         <div className="w-8 h-8 bg-purple-600 rotate-45"></div>, // 4 Diamond
-         <div className="text-3xl text-orange-500 font-bold">+</div> // 5 Cross
      ];
      return shapes[val];
   };
@@ -571,7 +582,6 @@ const SinterklaasGame = ({ onGameOver, onBack }) => {
 
   return (
     <div className="h-full w-full bg-slate-800 text-white flex flex-col relative select-none touch-none overflow-hidden">
-        {/* Header */}
         <div className="p-2 flex justify-between items-center bg-slate-900/50">
            <button onClick={onBack} className="p-2 bg-slate-700 rounded-full"><X size={20}/></button>
            <div className={`font-mono text-xl font-bold ${timeRemaining < 10 ? 'text-red-500 animate-pulse' : 'text-white'}`}>
@@ -579,12 +589,11 @@ const SinterklaasGame = ({ onGameOver, onBack }) => {
            </div>
         </div>
 
-        {/* Game Area */}
         {!gameActive && !winningPlayer ? (
             <div className="flex-1 flex flex-col items-center justify-center gap-4">
                 <Swords size={64} className="text-yellow-400 mb-4"/>
                 <h1 className="text-3xl font-bold text-center">Vormen Duel</h1>
-                <p className="text-slate-400 text-center max-w-xs">Verzamel 3 dezelfde vormen. <br/>Gooi 1 weg, pak 1 uit de pot.</p>
+                <p className="text-slate-400 text-center max-w-xs">Verzamel 3 dezelfde vormen. <br/>Tegenspeler zit tegenover je.</p>
                 <button onClick={initGame} className="bg-green-600 px-8 py-4 rounded-full font-bold text-xl shadow-lg hover:bg-green-500 transition-colors animate-bounce mt-8">
                     Start Spel
                 </button>
@@ -592,13 +601,13 @@ const SinterklaasGame = ({ onGameOver, onBack }) => {
         ) : (
             <div className="flex-1 flex flex-col justify-between p-4 relative">
                 
-                {/* Player 2 Area (Top) */}
-                <div className={`bg-slate-700/50 p-2 rounded-xl border-2 transition-colors ${currentPlayer === 2 ? 'border-yellow-400 bg-slate-700' : 'border-transparent'}`}>
+                {/* Player 2 (Rotated) */}
+                <div className={`bg-slate-700/50 p-2 rounded-xl border-2 transition-colors rotate-180 ${currentPlayer === 2 ? 'border-yellow-400 bg-slate-700' : 'border-transparent'}`}>
                     <div className="flex justify-between items-center mb-2">
                         <span className="font-bold text-red-400">Speler 2</span>
                         <button 
                             onClick={() => handleSabotage(2)} 
-                            disabled={currentPlayer !== 2 || sabotageUsed.p2 || turnPhase !== 'discard'}
+                            disabled={!gameActive || currentPlayer === 2 || turnPhase !== 'pick' || sabotageUsed.p2}
                             className="bg-orange-600 text-xs px-2 py-1 rounded disabled:opacity-20 flex gap-1 items-center"
                         >
                             <ShieldAlert size={12}/> Saboteer
@@ -611,20 +620,20 @@ const SinterklaasGame = ({ onGameOver, onBack }) => {
 
                 {/* Center Pot */}
                 <div className="flex-1 flex flex-col items-center justify-center">
-                    <div className="text-sm text-slate-400 uppercase tracking-widest mb-2 font-bold">{statusMsg}</div>
+                    <div className="text-sm text-slate-400 uppercase tracking-widest mb-2 font-bold text-center">{statusMsg}</div>
                     <div className="flex flex-wrap justify-center gap-2 p-4 bg-slate-900/30 rounded-2xl w-full min-h-[120px]">
                          {centerTiles.length === 0 && <div className="text-slate-600 text-xs self-center">Lege Pot</div>}
                          {centerTiles.map((val, i) => renderCard(val, () => handleCenterClick(i), turnPhase !== 'pick', i === centerTiles.length - 1))}
                     </div>
                 </div>
 
-                {/* Player 1 Area (Bottom) */}
+                {/* Player 1 */}
                 <div className={`bg-slate-700/50 p-2 rounded-xl border-2 transition-colors ${currentPlayer === 1 ? 'border-yellow-400 bg-slate-700' : 'border-transparent'}`}>
                     <div className="flex justify-between items-center mb-2">
                         <span className="font-bold text-blue-400">Speler 1</span>
                         <button 
                             onClick={() => handleSabotage(1)} 
-                            disabled={currentPlayer !== 1 || sabotageUsed.p1 || turnPhase !== 'discard'}
+                            disabled={!gameActive || currentPlayer === 1 || turnPhase !== 'pick' || sabotageUsed.p1}
                             className="bg-orange-600 text-xs px-2 py-1 rounded disabled:opacity-20 flex gap-1 items-center"
                         >
                             <ShieldAlert size={12}/> Saboteer
@@ -640,9 +649,6 @@ const SinterklaasGame = ({ onGameOver, onBack }) => {
                     <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-50 animate-fade-in">
                         <Trophy size={80} className="text-yellow-400 mb-4 animate-bounce" />
                         <h2 className="text-4xl font-black text-white mb-2">Speler {winningPlayer} Wint!</h2>
-                        <div className="flex gap-2">
-                             {(winningPlayer === 1 ? p1Hand : p2Hand).map((v, i) => <div key={i} className="scale-75">{renderShape(v)}</div>)}
-                        </div>
                     </div>
                 )}
             </div>
@@ -651,12 +657,11 @@ const SinterklaasGame = ({ onGameOver, onBack }) => {
   );
 };
 
+// --- HARTSLAG RITME (Heartbeat / Agility) ---
 const AgilityGame = ({ onGameOver, onBack }) => {
   const canvasRef = useRef(null);
   const requestRef = useRef(null);
   const audioCtxRef = useRef(null);
-
-  // Game State Refs (Mutable for loop)
   const gameStateRef = useRef({
     startTime: 0,
     gameTime: 0,
@@ -673,12 +678,10 @@ const AgilityGame = ({ onGameOver, onBack }) => {
     rhythmPattern: [1, -1, -1],
     hasStarted: false
   });
-
   const [uiState, setUiState] = useState({ score: 0, time: 0, gameOver: false, started: false });
 
-  // Constants
   const GAME_DURATION = 30;
-  const GROUND_Y = 320; // Adjusted for responsive canvas
+  const GROUND_Y = 320; 
   const LINE_Y = 330;
   const OBSTACLE_HEIGHT = 40;
   const POWERUP_INTERVAL = 8;
@@ -691,16 +694,14 @@ const AgilityGame = ({ onGameOver, onBack }) => {
 
     const canvas = canvasRef.current;
     if (canvas) {
-       // Set Canvas Size
        canvas.width = window.innerWidth;
        canvas.height = window.innerHeight;
-       // Init Player
-       gameStateRef.current.player.x = canvas.width / 4;
-       gameStateRef.current.player.groundY = canvas.height - 100;
-       gameStateRef.current.player.y = canvas.height - 100;
-       gameStateRef.current.nextObstacleX = canvas.width;
+       const s = gameStateRef.current;
+       s.player.x = canvas.width / 4;
+       s.player.groundY = canvas.height - 200; 
+       s.player.y = s.player.groundY;
+       s.nextObstacleX = canvas.width;
     }
-
     return () => {
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
       if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') { try { audioCtxRef.current.close(); } catch(e) {} }
@@ -724,110 +725,79 @@ const AgilityGame = ({ onGameOver, onBack }) => {
     } catch(e) {}
   };
 
-  const playWinSound = () => {
-      playTone(523.25, 'sine', 0.1); 
-      setTimeout(() => playTone(659.25, 'sine', 0.1), 100); 
-      setTimeout(() => playTone(783.99, 'sine', 0.2), 200); 
-  };
-  const playLoseSound = () => {
-      playTone(440.00, 'square', 0.1); 
-      setTimeout(() => playTone(392.00, 'square', 0.1), 100); 
-      setTimeout(() => playTone(349.23, 'square', 0.2), 200);
-  };
-
   const initGame = () => {
-     const state = gameStateRef.current;
+     const s = gameStateRef.current;
      const canvas = canvasRef.current;
-     
-     state.hasStarted = true;
-     state.isGameOver = false;
-     state.startTime = Date.now();
-     state.gameTime = 0;
-     state.score = 0;
-     state.obstacles = [];
-     state.powerup = null;
-     state.nextPowerupTime = 0;
-     state.scrollSpeed = 3;
-     state.beatSpacing = 200;
-     state.player.y = state.player.groundY;
-     state.player.velocityY = 0;
-     state.player.isJumping = false;
-     state.nextObstacleX = canvas.width;
-
+     s.hasStarted = true;
+     s.isGameOver = false;
+     s.startTime = Date.now();
+     s.gameTime = 0;
+     s.score = 0;
+     s.obstacles = [];
+     s.powerup = null;
+     s.nextPowerupTime = 0;
+     s.scrollSpeed = 3;
+     s.beatSpacing = 200;
+     s.player.y = s.player.groundY;
+     s.player.velocityY = 0;
+     s.player.isJumping = false;
+     s.nextObstacleX = canvas.width;
      setUiState({ score: 0, time: 0, gameOver: false, started: true });
-     
      if (requestRef.current) cancelAnimationFrame(requestRef.current);
      requestRef.current = requestAnimationFrame(gameLoop);
   };
 
   const jump = () => {
-    const state = gameStateRef.current;
-    if (!state.hasStarted) {
-        initGame();
-        return;
-    }
-    if (!state.player.isJumping && !state.isGameOver) {
-        state.player.isJumping = true;
-        state.player.velocityY = -15; // Jump Strength
-        playTone(150, 'square', 0.1); // Jump Sound
-    } else if (state.isGameOver) {
-        // Restart logic if needed, but App usually handles it via prop
+    const s = gameStateRef.current;
+    if (!s.hasStarted) { initGame(); return; }
+    if (!s.player.isJumping && !s.isGameOver) {
+        s.player.isJumping = true;
+        s.player.velocityY = -15; 
+        playTone(150, 'square', 0.1); 
     }
   };
 
   const updateRhythm = (timeFactor) => {
-      const state = gameStateRef.current;
+      const s = gameStateRef.current;
       let speedFactor = 1.0 + timeFactor * 3.0;
-      state.scrollSpeed = 3 * speedFactor;
-      // Recalc beat spacing based on speed
+      s.scrollSpeed = 3 * speedFactor;
       const currentBPM = 100 * speedFactor;
       const secondsPerBeat = 60 / currentBPM;
-      state.beatSpacing = state.scrollSpeed * (secondsPerBeat * 60);
-      if (state.beatSpacing < 80) state.beatSpacing = 80;
-      if (state.beatSpacing > 300) state.beatSpacing = 300;
+      s.beatSpacing = s.scrollSpeed * (secondsPerBeat * 60);
+      if (s.beatSpacing < 80) s.beatSpacing = 80;
+      if (s.beatSpacing > 300) s.beatSpacing = 300;
   };
 
   const spawnEntities = (canvas) => {
-      const state = gameStateRef.current;
-      // Obstacles
-      if (state.nextObstacleX < canvas.width + state.beatSpacing) {
-          const type = state.rhythmPattern[state.patternIndex];
-          if (type === 1) playTone(1000, 'square', 0.05, 0.1); // Cardio Beep
-          
-          state.obstacles.push({ x: state.nextObstacleX, type: type, size: 20, hasScored: false });
-          state.nextObstacleX += state.beatSpacing;
-          state.patternIndex = (state.patternIndex + 1) % state.rhythmPattern.length;
+      const s = gameStateRef.current;
+      if (s.nextObstacleX < canvas.width + s.beatSpacing) {
+          const type = s.rhythmPattern[s.patternIndex];
+          if (type === 1) playTone(1000, 'square', 0.05, 0.1); 
+          s.obstacles.push({ x: s.nextObstacleX, type: type, size: 20, hasScored: false });
+          s.nextObstacleX += s.beatSpacing;
+          s.patternIndex = (s.patternIndex + 1) % s.rhythmPattern.length;
       }
-      // Powerup
-      if (state.gameTime >= state.nextPowerupTime && state.powerup === null) {
-          state.powerup = { x: canvas.width + 50, y: state.player.groundY - 100, radius: 12 };
-          state.nextPowerupTime = state.gameTime + POWERUP_INTERVAL;
+      if (s.gameTime >= s.nextPowerupTime && s.powerup === null) {
+          s.powerup = { x: canvas.width + 50, y: s.player.groundY - 100, radius: 12 };
+          s.nextPowerupTime = s.gameTime + POWERUP_INTERVAL;
       }
   };
 
   const gameLoop = () => {
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
-      const state = gameStateRef.current;
+      const s = gameStateRef.current;
+      s.gameTime = (Date.now() - s.startTime) / 1000;
+      setUiState(prev => ({ ...prev, score: s.score, time: s.gameTime, gameOver: s.isGameOver }));
 
-      state.gameTime = (Date.now() - state.startTime) / 1000;
-      
-      // Update UI occasionally or every frame
-      setUiState(prev => ({ ...prev, score: state.score, time: state.gameTime, gameOver: state.isGameOver }));
-
-      // Win Condition
-      if (state.gameTime >= GAME_DURATION && !state.isGameOver) {
-          state.isGameOver = true;
-          playWinSound();
-          setTimeout(() => onGameOver({ score: state.score, message: `Hartslag Ritme: ${state.score} punten!` }), 2000);
+      if (s.gameTime >= GAME_DURATION && !s.isGameOver) {
+          s.isGameOver = true;
+          setTimeout(() => onGameOver({ score: s.score, message: `Hartslag Ritme: ${s.score} punten!` }), 2000);
       }
 
-      // Clear
       ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      // Line
-      const lineY = state.player.groundY + 10;
+      const lineY = s.player.groundY + 10;
       ctx.strokeStyle = '#ff4500';
       ctx.lineWidth = 2;
       ctx.beginPath();
@@ -835,106 +805,74 @@ const AgilityGame = ({ onGameOver, onBack }) => {
       ctx.lineTo(canvas.width, lineY);
       ctx.stroke();
 
-      if (!state.isGameOver) {
-          const timeFactor = Math.min(state.gameTime / GAME_DURATION, 1);
+      if (!s.isGameOver) {
+          const timeFactor = Math.min(s.gameTime / GAME_DURATION, 1);
           updateRhythm(timeFactor);
           spawnEntities(canvas);
-
-          // Update Obstacles
-          state.obstacles.forEach(obs => obs.x -= state.scrollSpeed);
-          state.obstacles = state.obstacles.filter(obs => obs.x > -50);
-          
-          // Scroll the spawn point as well so it doesn't drift away
-          state.nextObstacleX -= state.scrollSpeed;
-
-          // Update Powerup
-          if (state.powerup) {
-              state.powerup.x -= state.scrollSpeed;
-              if (state.powerup.x < -50) state.powerup = null;
+          s.obstacles.forEach(obs => obs.x -= s.scrollSpeed);
+          s.obstacles = s.obstacles.filter(obs => obs.x > -50);
+          s.nextObstacleX -= s.scrollSpeed;
+          if (s.powerup) {
+              s.powerup.x -= s.scrollSpeed;
+              if (s.powerup.x < -50) s.powerup = null;
           }
-
-          // Update Player
-          if (state.player.isJumping || state.player.y < state.player.groundY) {
-              state.player.velocityY += 0.8; // Gravity
-              state.player.y += state.player.velocityY;
+          if (s.player.isJumping || s.player.y < s.player.groundY) {
+              s.player.velocityY += 0.8; 
+              s.player.y += s.player.velocityY;
           }
-          if (state.player.y > state.player.groundY) {
-              state.player.y = state.player.groundY;
-              state.player.velocityY = 0;
-              state.player.isJumping = false;
+          if (s.player.y > s.player.groundY) {
+              s.player.y = s.player.groundY;
+              s.player.velocityY = 0;
+              s.player.isJumping = false;
           }
-
-          // Collisions & Score
-          state.obstacles.forEach(obs => {
-               // Hit box check (Player is circle approx 15 radius)
-               const pX = state.player.x;
-               const pY = state.player.y - 25; // Center of body
-               
+          s.obstacles.forEach(obs => {
+               const pX = s.player.x;
                if (obs.x > pX - 20 && obs.x < pX + 20) {
-                   if (obs.type === 1) { // Spike
-                       if (state.player.y > lineY - OBSTACLE_HEIGHT) {
-                           state.isGameOver = true;
-                           playLoseSound();
-                           setTimeout(() => onGameOver({ score: state.score, message: `Hartstilstand! Score: ${state.score}` }), 1500);
-                       }
+                   if (obs.type === 1 && s.player.y > lineY - OBSTACLE_HEIGHT) {
+                       s.isGameOver = true;
+                       playTone(440, 'square', 0.3);
+                       setTimeout(() => onGameOver({ score: s.score, message: `Hartstilstand! Score: ${s.score}` }), 1500);
                    }
                }
-               // Score pass
                if (obs.type === 1 && !obs.hasScored && obs.x < pX - 20) {
-                   state.score++;
+                   s.score++;
                    obs.hasScored = true;
                }
           });
-
-          // Powerup Collision
-          if (state.powerup) {
-              const dx = state.player.x - state.powerup.x;
-              const dy = (state.player.y - 40) - state.powerup.y;
+          if (s.powerup) {
+              const dx = s.player.x - s.powerup.x;
+              const dy = (s.player.y - 40) - s.powerup.y;
               if (Math.sqrt(dx*dx + dy*dy) < 30) {
-                  state.score += 2;
+                  s.score += 2;
                   playTone(1500, 'triangle', 0.1);
-                  state.powerup = null;
+                  s.powerup = null;
               }
           }
       }
 
-      // DRAWING
-      // Obstacles
-      state.obstacles.forEach(obs => {
+      // Draw
+      s.obstacles.forEach(obs => {
           ctx.beginPath();
-          const color = obs.type === 1 ? '#ff4500' : '#0080ff';
-          ctx.fillStyle = color;
+          ctx.fillStyle = obs.type === 1 ? '#ff4500' : '#0080ff';
           ctx.moveTo(obs.x - 10, lineY);
           ctx.lineTo(obs.x, lineY - (obs.type === 1 ? OBSTACLE_HEIGHT : -OBSTACLE_HEIGHT));
           ctx.lineTo(obs.x + 10, lineY);
           ctx.fill();
       });
-
-      // Powerup
-      if (state.powerup) {
+      if (s.powerup) {
           ctx.beginPath();
           ctx.fillStyle = '#00ffff';
-          ctx.arc(state.powerup.x, state.powerup.y, 10 + Math.sin(state.gameTime * 10)*2, 0, Math.PI*2);
+          ctx.arc(s.powerup.x, s.powerup.y, 10 + Math.sin(s.gameTime * 10)*2, 0, Math.PI*2);
           ctx.fill();
       }
-
-      // Player
-      const pX = state.player.x;
-      const pY = state.player.y;
-      
-      // Body
+      const pX = s.player.x;
+      const pY = s.player.y;
       ctx.strokeStyle = '#00ff41';
       ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.arc(pX, pY - 25, 10, 0, Math.PI*2); // Body
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(pX, pY - 50, 15, 0, Math.PI*2); // Head
-      ctx.stroke();
+      ctx.beginPath(); ctx.arc(pX, pY - 25, 10, 0, Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(pX, pY - 50, 15, 0, Math.PI*2); ctx.stroke();
 
-      if (!state.isGameOver) {
-          requestRef.current = requestAnimationFrame(gameLoop);
-      }
+      if (!s.isGameOver) requestRef.current = requestAnimationFrame(gameLoop);
   };
 
   return (
@@ -946,7 +884,6 @@ const AgilityGame = ({ onGameOver, onBack }) => {
             <div className="text-white">{uiState.time.toFixed(1)}s</div>
         </div>
       </div>
-
       <div className="flex-1 relative" onPointerDown={jump}>
          {!uiState.started && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-30 pointer-events-none">
@@ -962,8 +899,7 @@ const AgilityGame = ({ onGameOver, onBack }) => {
   );
 };
 
-// --- APP COMPONENT ---
-const App = ({ onExit }) => {
+export default function App({ onExit }) {
   const [activeGame, setActiveGame] = useState(null);
   const [lastResult, setLastResult] = useState(null);
   const [isSpinning, setIsSpinning] = useState(false);
@@ -993,59 +929,44 @@ const App = ({ onExit }) => {
   };
 
   return (
-    <div className="h-[100dvh] w-screen flex flex-col items-center justify-between p-4 relative overflow-hidden no-select bg-game-dark text-white">
+    <div className="h-[100dvh] w-screen flex flex-col items-center justify-center p-4 relative overflow-hidden no-select bg-game-dark text-white">
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 opacity-20 pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-64 h-64 bg-game-primary rounded-full blur-3xl"></div>
         <div className="absolute bottom-[-10%] right-[-10%] w-80 h-80 bg-game-accent rounded-full blur-3xl"></div>
       </div>
 
       {!activeGame ? (
-        <>
-          <div className="flex-1 flex flex-col items-center justify-center gap-6 w-full max-w-md z-10 animate-fade-in">
-            <header className="text-center">
-              <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-game-secondary to-game-accent drop-shadow-lg mb-2">MINI GAME MIX</h1>
-              <p className="text-slate-400 text-sm">Draai het wiel en speel!</p>
-            </header>
-
-            <div className="relative py-4">
-               <WheelSelector onSpinComplete={handleGameSelection} isSpinningExternal={isSpinning} />
+        <div className="flex flex-col items-center gap-8 w-full max-w-md z-10 animate-fade-in">
+          <header className="text-center">
+            <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-game-secondary to-game-accent drop-shadow-lg mb-2">MINI GAME MIX</h1>
+            <p className="text-slate-400 text-sm">Draai het wiel en speel!</p>
+          </header>
+          <div className="relative py-8"><WheelSelector onSpinComplete={handleGameSelection} isSpinningExternal={isSpinning} /></div>
+          {lastResult && (
+            <div className="bg-game-surface border border-game-primary/30 rounded-xl p-6 w-full text-center animate-fade-in shadow-2xl">
+              <div className="flex justify-center mb-2"><Trophy className="w-10 h-10 text-yellow-400" /></div>
+              <h2 className="text-xl font-bold text-white mb-1">Spel Afgelopen!</h2>
+              <div className="text-3xl font-black text-game-accent mb-2">{lastResult.score} Ptn</div>
+              <p className="text-slate-300 text-sm">{lastResult.message}</p>
             </div>
-
-            {lastResult && (
-              <div className="bg-game-surface border border-game-primary/30 rounded-xl p-4 w-full text-center animate-fade-in shadow-2xl">
-                <div className="flex justify-center mb-1"><Trophy className="w-8 h-8 text-yellow-400" /></div>
-                <h2 className="text-lg font-bold text-white mb-1">Spel Afgelopen!</h2>
-                <div className="text-2xl font-black text-game-accent mb-1">{lastResult.score} Ptn</div>
-                <p className="text-slate-300 text-xs">{lastResult.message}</p>
-              </div>
-            )}
-          </div>
-          
-          <div className="w-full max-w-md z-10 pb-4">
-             {onExit && (
-              <button onClick={onExit} disabled={isSpinning} className="w-full py-4 flex items-center justify-center gap-2 text-slate-300 hover:text-white transition-colors bg-game-surface/50 rounded-xl border border-white/10 active:scale-95">
-                <LogOut size={20} /> <span className="font-bold">Terug naar Hoofdmenu</span>
-              </button>
-            )}
-          </div>
-        </>
-      ) : (
-        <div className="w-full h-full absolute top-0 left-0 bg-game-dark z-50">
-          {renderGame()}
+          )}
+          {onExit && (
+            <button onClick={onExit} disabled={isSpinning} className="mt-4 flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm"><LogOut size={16} /> Terug naar Hoofdmenu</button>
+          )}
         </div>
+      ) : (
+        <div className="w-full h-full absolute top-0 left-0 bg-game-dark z-50">{renderGame()}</div>
       )}
     </div>
   );
-};
+}
 
 const mountNode = document.getElementById('react-view');
 if (mountNode) {
   try {
     const root = ReactDOM.createRoot(mountNode);
     const handleExit = () => {
-      if (window.showView) {
-        window.showView('main-menu', true);
-      } else {
+      if (window.showView) { window.showView('main-menu', true); } else {
         const reactView = document.getElementById('react-view');
         const mainMenu = document.getElementById('main-menu');
         const header = document.getElementById('main-header');
