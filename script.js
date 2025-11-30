@@ -163,26 +163,27 @@ window.playMainMenuAudio = function() {
     if (!userWantsMusic) return;
 
     var audioUrl = "Tellen Tot 10.mp3"; 
-    if (!mainMenuAudio || mainMenuAudio.paused) {
-        try {
-            if (!mainMenuAudio) {
-                mainMenuAudio = new Audio(audioUrl);
-                mainMenuAudio.loop = true; 
-                mainMenuAudio.addEventListener('error', function(e) {
-                    // Fail silently
-                    isAudioPlaying = false;
-                });
-            }
-            var playPromise = mainMenuAudio.play();
-            if (playPromise !== undefined) {
-                playPromise.then(function() {
-                    isAudioPlaying = true;
-                }).catch(function(error) {
-                    isAudioPlaying = false;
-                });
-            }
-        } catch (e) {
-            console.log("Audio initialization failed");
+    
+    // Create audio object if it doesn't exist
+    if (!mainMenuAudio) {
+        mainMenuAudio = new Audio(audioUrl);
+        mainMenuAudio.loop = true; 
+        mainMenuAudio.addEventListener('error', function(e) {
+            console.log("Audio load error, disabling playing state");
+            isAudioPlaying = false;
+        });
+    }
+
+    // Try to play
+    if (mainMenuAudio.paused) {
+        var playPromise = mainMenuAudio.play();
+        if (playPromise !== undefined) {
+            playPromise.then(function() {
+                isAudioPlaying = true;
+            }).catch(function(error) {
+                console.log("Audio play prevented: " + error);
+                isAudioPlaying = false;
+            });
         }
     }
 };
@@ -278,13 +279,21 @@ window.startMusicQuiz = function() {
     currentMusicTrack = track; 
     currentMusicAnswer = `${track.label} (${track.year})`; 
 
+    // STOP AUDIO (Extra Check)
+    window.stopMainMenuAudio();
+
+    // Create Embed URL
+    var embedUrl = track.url.replace('/track/', '/embed/track/');
+    if (embedUrl.indexOf('?') > -1) { embedUrl = embedUrl.split('?')[0]; }
+
     outputDiv.innerHTML = `
         <p class="text-sm text-gray-500 mb-2">Opdracht</p>
         <p class="font-bold mb-4">Is dit nummer uitgebracht<br> <span class="text-green-600">Vóór 2000</span> of <span class="text-blue-600">Ná 2000</span>?</p>
-        <a href="${track.url}" target="_blank" class="bg-black text-white py-3 px-6 rounded-full inline-flex items-center gap-2 shadow-lg hover:scale-105 transition-transform">
-            <span>🎧</span> Open in Spotify
-        </a>
-        <div class="text-xs text-gray-400 mt-2 mb-4">${track.title}</div>
+        
+        <!-- EMBED PLAYER -->
+        <iframe style="border-radius:12px" src="${embedUrl}?utm_source=generator&theme=0" width="100%" height="80" frameBorder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
+        
+        <div class="text-xs text-gray-400 mt-4 mb-4">Luister naar het fragment...</div>
         <button onclick="showMusicAnswer()" class="action-btn warning">Toon Antwoord</button>
     `;
 };
@@ -299,7 +308,7 @@ window.showMusicAnswer = function() {
         <p style="color: #e30613; font-weight: bold; font-size: 1.2rem; border-top: 1px solid #ddd; padding-top: 10px; margin-bottom: 20px;">
             Antwoord: ${currentMusicAnswer}
         </p>
-        <button onclick="startMusicQuiz()" class="action-btn primary">Volgend Lied</button>
+        <button onclick="showView('main-menu')" class="action-btn secondary">Terug naar Menu</button>
     `;
 };
 
@@ -330,7 +339,7 @@ window.showF1Answer = function() {
         <p style="color: #e30613; font-weight: bold; padding-top:15px; border-top:1px solid #ddd; margin-bottom: 20px;">
             ${currentF1Question.answer}
         </p>
-        <button onclick="startF1Quiz()" class="action-btn primary">Volgende Vraag</button>
+        <button onclick="showView('main-menu')" class="action-btn secondary">Terug naar Menu</button>
     `;
 };
 
@@ -348,7 +357,7 @@ window.getBoardCommand = function() {
         <div style="background: ${movementColor}; color: white; padding: 10px; border-radius: 8px; font-weight: bold; margin-bottom: 20px;">
             ${movementText}
         </div>
-        <button onclick="getBoardCommand()" class="action-btn primary">Nieuwe Kaart</button>
+        <button onclick="showView('main-menu')" class="action-btn secondary">Terug naar Menu</button>
     `;
 };
 
