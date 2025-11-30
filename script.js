@@ -162,7 +162,7 @@ window.playMainMenuAudio = function() {
     // Only play if the user actually wanted music
     if (!userWantsMusic) return;
 
-    var audioUrl = "Tellen Tot 10.mp3"; 
+    var audioUrl = "back hip.mp3"; 
     
     // Create audio object if it doesn't exist
     if (!mainMenuAudio) {
