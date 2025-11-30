@@ -306,8 +306,8 @@ window.showView = function(viewId, skipRandom) {
 
             } else if (viewId === 'react-view') {
                  if (header) header.style.display = 'none';
-                 // Audio: ALWAYS OFF in minigames
-                 window.stopMainMenuAudio();
+                 // Audio: ALLOW PLAYING in wheel screen (logic handled in React App for game specific stops)
+                 if (userWantsMusic) window.playMainMenuAudio();
 
             } else if (viewId === 'music-view') {
                 if (header) header.style.display = 'block';

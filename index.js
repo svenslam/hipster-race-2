@@ -904,6 +904,17 @@ export default function App({ onExit }) {
   const [lastResult, setLastResult] = useState(null);
   const [isSpinning, setIsSpinning] = useState(false);
 
+  // Effect to handle Audio
+  useEffect(() => {
+    if (activeGame) {
+      // Game started -> Stop Music
+      if (window.stopMainMenuAudio) window.stopMainMenuAudio();
+    } else {
+      // Wheel/Menu -> Play Music (if allowed)
+      if (window.playMainMenuAudio) window.playMainMenuAudio();
+    }
+  }, [activeGame]);
+
   const handleGameSelection = (game) => {
     setIsSpinning(true);
     setTimeout(() => {

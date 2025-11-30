@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { GameType } from './types.js';
 import { WheelSelector } from './components/WheelSelector.js';
 import { F1Game } from './components/games/F1Game.js';
@@ -12,6 +12,17 @@ export default function App({ onExit }) {
   const [activeGame, setActiveGame] = useState(null);
   const [lastResult, setLastResult] = useState(null);
   const [isSpinning, setIsSpinning] = useState(false);
+
+  // Manage Audio
+  useEffect(() => {
+    if (activeGame) {
+      // Game started -> Stop Music
+      if (window.stopMainMenuAudio) window.stopMainMenuAudio();
+    } else {
+      // Wheel/Menu -> Play Music (if allowed)
+      if (window.playMainMenuAudio) window.playMainMenuAudio();
+    }
+  }, [activeGame]);
 
   const handleGameSelection = (game) => {
     setIsSpinning(true);
