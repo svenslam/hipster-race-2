@@ -2,6 +2,8 @@
 // --- GLOBAL VARIABLES ---
 var userWantsMusic = false; // Tracks if user explicitly enabled music
 var mainMenuAudio = null;
+var introAudio = null; // New variable for intro music
+var introTimer = null; // Timer for 50s intro
 var isAudioPlaying = false;
 var currentF1Question = null;
 var currentMusicTrack = null;
@@ -143,6 +145,57 @@ function getNextIndex(questions, usedIndices) {
     return randomIndex;
 }
 
+// --- INTRO & AUDIO LOGIC ---
+
+window.startIntroSequence = function() {
+    var playBtn = document.querySelector('.intro-play-btn');
+    var skipBtn = document.getElementById('skip-btn');
+    
+    if (playBtn) playBtn.classList.add('hidden');
+    if (skipBtn) skipBtn.classList.remove('hidden');
+
+    if (!introAudio) {
+        introAudio = new Audio('intro hip.mp3');
+    }
+    
+    introAudio.currentTime = 0;
+    introAudio.play().catch(e => console.log("Intro audio play error:", e));
+
+    // 50 Seconds timer
+    if (introTimer) clearTimeout(introTimer);
+    introTimer = setTimeout(function() {
+        window.skipIntro();
+    }, 50000); // 50 seconds
+};
+
+window.skipIntro = function() {
+    if (introAudio) {
+        introAudio.pause();
+        introAudio.currentTime = 0;
+    }
+    if (introTimer) clearTimeout(introTimer);
+    
+    window.showView('main-menu');
+};
+
+window.resetIntro = function() {
+    // Stop main audio
+    window.stopMainMenuAudio();
+    // Stop intro audio if playing
+    if (introAudio) {
+        introAudio.pause();
+        introAudio.currentTime = 0;
+    }
+    
+    // Reset buttons
+    var playBtn = document.querySelector('.intro-play-btn');
+    var skipBtn = document.getElementById('skip-btn');
+    if (playBtn) playBtn.classList.remove('hidden');
+    if (skipBtn) skipBtn.classList.add('hidden');
+
+    window.showView('intro-view');
+};
+
 // --- AUDIO FUNCTIONS ---
 window.updateAudioButtonState = function() {
     var btn = document.getElementById('audio-toggle-btn');
@@ -225,7 +278,11 @@ window.showView = function(viewId, skipRandom) {
             view.classList.add('active');
 
             // --- VIEW SPECIFIC LOGIC ---
-            if (viewId === 'main-menu') {
+            if (viewId === 'intro-view') {
+                if (header) header.style.display = 'none'; // Hide header on intro
+                // Audio is handled by startIntroSequence button
+            }
+            else if (viewId === 'main-menu') {
                 if (header) header.style.display = 'block';
                 // Reset content
                 document.getElementById('music-output').innerHTML = `
@@ -363,14 +420,17 @@ window.getBoardCommand = function() {
 
 // --- INITIALIZATION ---
 document.addEventListener('DOMContentLoaded', function() {
-    // Set initial content via innerHTML on load to ensure buttons are present
-    if (window.showView) window.showView('main-menu', true);
+    // Start at Intro View
+    if (window.showView) window.showView('intro-view', true);
 
     var header = document.getElementById('main-header');
     if (header) {
-        header.addEventListener('click', function() {
-            console.log("Easter egg: Minigames");
-            window.showView('react-view', true);
+        header.addEventListener('click', function(e) {
+            // Only trigger easter egg if clicking header background, not reset button
+            if (e.target.tagName !== 'BUTTON') {
+                console.log("Easter egg: Minigames");
+                window.showView('react-view', true);
+            }
         });
     }
 });

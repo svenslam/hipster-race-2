@@ -66,17 +66,31 @@
         window.toggleMainMenuAudio = window.toggleMainMenuAudio || function() {};
         window.showMusicAnswer = window.showMusicAnswer || function() {};
         window.showF1Answer = window.showF1Answer || function() {};
+        window.resetIntro = window.resetIntro || function() {};
+        window.startIntroSequence = window.startIntroSequence || function() {};
+        window.skipIntro = window.skipIntro || function() {};
       })();
     </script>
 </head>
 <body>
-    <header id="main-header">
-        <h1>🏎️ Spel Aanvulling</h1>
+    <header id="main-header" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+            <h1>🏎️ Spel Aanvulling</h1>
+            <button onclick="resetIntro()" class="text-btn" title="Terug naar Intro">🔄</button>
+        </div>
     </header>
 
     <main>
+        <!-- INTRO VIEW -->
+        <div id="intro-view" class="view active full-height-view intro-container">
+            <div class="intro-content">
+                <button onclick="startIntroSequence()" class="intro-play-btn">START RACE 🏁</button>
+                <button onclick="skipIntro()" class="intro-skip-btn hidden" id="skip-btn">Sla over >></button>
+            </div>
+        </div>
+
         <!-- Main Menu -->
-        <div id="main-menu" class="view active full-height-view">
+        <div id="main-menu" class="view hidden full-height-view">
             <div class="menu-content">
                 <h2>Kies je Spel</h2>
                 <div class="button-grid">
