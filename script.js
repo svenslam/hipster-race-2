@@ -221,7 +221,7 @@ window.playMainMenuAudio = function() {
     if (!mainMenuAudio) {
         mainMenuAudio = new Audio(audioUrl);
         mainMenuAudio.loop = true; 
-        mainMenuAudio.volume = 0.5; // VOLUME SET TO 50%
+        mainMenuAudio.volume = 0.2; // VOLUME SET TO 50%
         mainMenuAudio.addEventListener('error', function(e) {
             console.log("Audio load error, disabling playing state");
             isAudioPlaying = false;
